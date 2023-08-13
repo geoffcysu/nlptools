@@ -17,10 +17,15 @@ with open('DROIDTOWN.json') as f:
 
 articut = Articut(username, apikey)
 
-# inputSTR = "戴克斯的原始版本僅適用於找到兩個頂點之間的最短路徑"
+inputSTR = "戴克斯的原始版本僅適用於找到兩個頂點之間的最短路徑"
 # resultDICT = articut.parse(inputSTR, level="lv2")
-# pp.pprint(resultDICT)
-
+# #pp.pprint(resultDICT)
+# with open("sample.json", "w",encoding='utf-8') as outfile:
+#     json.dump(resultDICT, outfile, ensure_ascii=False, indent=4)
+    
+# with open('sample.json','r+') as f:
+#     r = json.load(f)
+#     f.write(pp.pformat(r))
 
 class Word:
     pos : str
