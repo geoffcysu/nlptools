@@ -134,20 +134,7 @@ sample1 = RoseTree('P',
 #     |         |____6 : ? ? ? |_6
 #     |______________7 : ? |_7
 
-# @adt
-# class ParentInfo:
-#     HEAD: Case[str]
-#     MIDDLE: Case
-#     END:Case
-# PI = ParentInfo
 
-# T = TypeVar('T')
-# @adt
-# class LList(Generic[T]):
-#     NIL: Case
-#     CONS: Case[T, 'LList[T]']
-# nil = LList.NIL
-# cons = LList.CONS
 
 NodeInfo = str
 #[MID],[END],or the label of the node
@@ -185,21 +172,21 @@ def strParseTree(tree:RoseTree, indent=0, alignLeaves=0, layerLength=6)->str:
         
         # horz-rule: splitting
         splitIndex = rindex(lambda x:x.nodeInfo in [_MID,_END],ctxs)
-        splitIndex = 0 if splitIndex==-1 else 0 
+        splitIndex = 0 if splitIndex==-1 else splitIndex
         #splitIndex==-1 means no non-head, so every segment should be rendered with horz line.
-
+        print(leafContent)
+        print(ctxs)
         # vert-rule
-        def vertSymb(i:int)->str:
-            if ctxs[i].nodeInfo not in [_MID,_END]:
+        def vertSymb(i:int,printHead:bool)->str:
+            if printHead and ctxs[i].nodeInfo not in [_MID,_END]:
                 return ctxs[i].nodeInfo
             elif ctxs[i].nodeInfo==_END and\
-                ((i+1<len(ctxs) and (ctxs[i+1].nodeInfo in [_MID,_END]))
-                 or i+1==len(ctxs)):
+                 i+1<len(ctxs) and (ctxs[i+1].nodeInfo in [_MID,_END]):
                 return " "
             else:
                 return "|"
-        return (*(vertSymb(i).ljust(layerLength+ctxs[i].padding," ") for i in range(0,splitIndex))
-               ,*(vertSymb(i).ljust(layerLength+ctxs[i].padding,"_") for i in range(splitIndex,len(ctxs)))
+        return (*(vertSymb(i,False).ljust(layerLength+ctxs[i].padding," ") for i in range(0,splitIndex))
+               ,*(vertSymb(i,True).ljust(layerLength+ctxs[i].padding,"_") for i in range(splitIndex,len(ctxs)))
                ,leafContent
                ,'\n'
                )
