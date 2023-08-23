@@ -23,9 +23,11 @@ with open('DROIDTOWN.json') as f:
 
 articut = Articut(username, apikey)
 
-inputSTR = "戴克斯的原始版本僅適用於找到兩個頂點之間的最短路徑"
+#inputSTR = "戴克斯的原始版本僅適用於找到兩個頂點之間的最短路徑"
+inputSTR= '蓼葉堇菜（學名：）是堇菜科堇菜屬的植物。分布在朝鮮以及中國大陸的吉林等地，生長於海拔650米至900米的地區，一般生長在山地疏林中，目前尚未由人工引種栽培。'
 # resultDICT = articut.parse(inputSTR, level="lv2")
-# #pp.pprint(resultDICT)
+
+# pp.pprint(articut.getVerbStemLIST(resultDICT))
 # with open("sample.json", "w",encoding='utf-8') as outfile:
 #     json.dump(resultDICT, outfile, ensure_ascii=False, indent=4)
 
@@ -45,33 +47,72 @@ class Token:
     def __repr__(self):
         return str(self)
 
-class Tree:
-    label : str
-    left  : Optional['Tree']
-    right : Optional['Tree']
-    def __init__(self,label:str, left:Optional['Tree'], right:Optional['Tree']):
-        self.label = label
-        self.left = left
-        self.right = right
+class RoseTree:
+    _children:list['RoseTree']
+    def __init__(self,content,*args:'RoseTree'):
+        self.content = content
+        self._children = list(args)
+    @property
+    def children(self):
+        return self._children
+
+class SyntaxTreeParentAssignmentError(Exception):
+    pass
+
+class SyntaxTree(RoseTree):
+    _content : Union[str,Token]
+    _children : list['SyntaxTree']
+    _parent : Optional['SyntaxTree']
+    _parent_is_setable:int
+    def __init__(self,content:str, children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
+        self._content = content
+        self._children = children
+        self._parent = parent
+        _parent_is_setable = True if parent is None else False
+    @property
+    def content(self):
+        return self._content
+    @property
+    def children(self):
+        return self._children
+    @property
+    def parent(self):
+        return self._parent
+    @parent.setter
+    def parent(self, newParent):
+        if self._parent_is_setable:
+            self._parent = newParent
+            self._parent_is_setable = False
+        else:
+            raise SyntaxTreeParentAssignmentError("A syntaxTree can only be assigned to a parent once.")
+
+    def addChild(self,child:'SyntaxTree'):
+        self._children.append(child)
+        child.parent = self
+    def addChildren(self,children:list['SyntaxTree']):
+        for child in children:
+            self.addChild(child)
     def __repr__(self):
-        return f"Tree({self.label},left:{str(self.left)},right:{str(self.right)})"
+        return f"Tree({self.content},{self._children})"
 
 
 def posToken(pos:str):
-    return (parsy.string(f'<{pos}>') 
-            >> parsy.regex(r'[^<]*') 
-            << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
+    tokenParser = (parsy.string(f'<{pos}>') 
+                >> parsy.regex(r'[^<]*') 
+                << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
+    return tokenParser.map(lambda t:SyntaxTree(t))
 
-def optParser(parser:Optional[parsy.Parser]):
-    if parser is None:
-        return parsy.success(None)
-    else:
-        return parser
+# def optParser(parser:Optional[parsy.Parser]):
+#     if parser is None:
+#         return parsy.success(None)
+#     else:
+#         return parser
 
-def phrase(name:str,left:Optional[parsy.Parser]=None,right:Optional[parsy.Parser]=None):
-    return parsy.seq( optParser(left)
-                    , optParser(right) 
-                    ).combine(lambda l,r:Tree(name,l,r))
+def phrase(name:str,*subs:parsy.Parser):
+    def f(*subs):
+        nsubs = list(filter(lambda x:x is not None, subs))
+        return SyntaxTree(name,nsubs)
+    return parsy.seq(*subs).combine(f)
 
 
 # t phrasal rule: <t1>aaa</t1><t2>bbb</t2> (let t2 be optional)
@@ -83,20 +124,7 @@ tt = phrase( 't'
 # recursion: <cons>xxx</cons><cons>ggg</cons><nil>hhh</nil>
 
 
-class RoseTree:
-    _children:list['RoseTree']
-    def __init__(self,content,*args:'RoseTree'):
-        self.content = content
-        self._children = list(args)
-    @property
-    def children(self):
-        return self._children
-    # @property
-    # def content(self):
-    #     return self._content
-    # @content.setter
-    # def content(self,content):
-    #     assert type(self.content) == type(content), "Cannot change the content type of a tree"
+
     
 
 # use this string method: string.ljust(width, fillchar)    
@@ -136,15 +164,15 @@ sample1 = RoseTree('P',
 
 
 
-NodeInfo = str
-#[MID],[END],or the label of the node
-_MID = "[MID]"
-_END = "[END]"
+# NodeInfo = str
+# #[MID],[END],or the label of the node
+# _MID = "[MID]"
+# _END = "[END]"
 
-@dataclass
-class Context:
-    nodeInfo : NodeInfo
-    padding : int
+# @dataclass
+# class Context:
+#     nodeInfo : NodeInfo
+#     padding : int
 
 T = TypeVar('T')
 def rindex(pred:Callable[[T],bool],l:Sequence[T])->int:
@@ -153,50 +181,50 @@ def rindex(pred:Callable[[T],bool],l:Sequence[T])->int:
             return i
     return -1
 
-def strParseTree(tree:RoseTree, indent=0, alignLeaves=0, layerLength=6)->str:
-    def collectPathInfos(t:RoseTree,ctxs=[])->list[tuple[list[Context],str]]:
-        if len(t.children)==0:
-            return [(ctxs,str(t.content))]
-        else:
-            padding = 0 if len(tree.content)<layerLength else len(tree.content)+1
-            head = collectPathInfos(t.children[0], ctxs+[Context(str(t.content), padding)])
-            middles = list(chain(*map( partial(collectPathInfos,ctxs=ctxs+[Context(_MID,padding)])
-                                     , t.children[1:-1])))
-            last= collectPathInfos(t.children[-1], ctxs+[Context(_END,padding)]) if len(t.children)>1 else []
-            return head + middles + last
-    pathInfos = collectPathInfos(tree)
+# def strParseTree(tree:RoseTree, indent=0, alignLeaves=0, layerLength=6)->str:
+#     def collectPathInfos(t:RoseTree,ctxs=[])->list[tuple[list[Context],str]]:
+#         if len(t.children)==0:
+#             return [(ctxs,str(t.content))]
+#         else:
+#             padding = 0 if len(tree.content)<layerLength else len(tree.content)+1
+#             head = collectPathInfos(t.children[0], ctxs+[Context(str(t.content), padding)])
+#             middles = list(chain(*map( partial(collectPathInfos,ctxs=ctxs+[Context(_MID,padding)])
+#                                      , t.children[1:-1])))
+#             last= collectPathInfos(t.children[-1], ctxs+[Context(_END,padding)]) if len(t.children)>1 else []
+#             return head + middles + last
+#     pathInfos = collectPathInfos(tree)
 
-    def renderLeaf(ctxs:list[Context], leafContent:str)->Iterable[str]:
-        # The rule for horz: scan from right, horz line stops at first non-HEAD (MID or END).
-        # The rules for vert: only when END should it be " " except the next ctx is HEAD, otherwise "|".
+#     def renderLeaf(ctxs:list[Context], leafContent:str)->Iterable[str]:
+#         # The rule for horz: scan from right, horz line stops at first non-HEAD (MID or END).
+#         # The rules for vert: only when END should it be " " except the next ctx is HEAD, otherwise "|".
         
-        # horz-rule: splitting
-        splitIndex = rindex(lambda x:x.nodeInfo in [_MID,_END],ctxs)
-        splitIndex = 0 if splitIndex==-1 else splitIndex
-        #splitIndex==-1 means no non-head, so every segment should be rendered with horz line.
-        print(leafContent)
-        print(ctxs)
-        # vert-rule
-        def vertSymb(i:int,printHead:bool)->str:
-            if printHead and ctxs[i].nodeInfo not in [_MID,_END]:
-                return ctxs[i].nodeInfo
-            elif ctxs[i].nodeInfo==_END and\
-                 i+1<len(ctxs) and (ctxs[i+1].nodeInfo in [_MID,_END]):
-                return " "
-            else:
-                return "|"
-        return (*(vertSymb(i,False).ljust(layerLength+ctxs[i].padding," ") for i in range(0,splitIndex))
-               ,*(vertSymb(i,True).ljust(layerLength+ctxs[i].padding,"_") for i in range(splitIndex,len(ctxs)))
-               ,leafContent
-               ,'\n'
-               )
-    return ''.join(chain(*starmap(renderLeaf,pathInfos)))
+#         # horz-rule: splitting
+#         splitIndex = rindex(lambda x:x.nodeInfo in [_MID,_END],ctxs)
+#         splitIndex = 0 if splitIndex==-1 else splitIndex
+#         #splitIndex==-1 means no non-head, so every segment should be rendered with horz line.
+#         print(leafContent)
+#         print(ctxs)
+#         # vert-rule
+#         def vertSymb(i:int,printHead:bool)->str:
+#             if printHead and ctxs[i].nodeInfo not in [_MID,_END]:
+#                 return ctxs[i].nodeInfo
+#             elif ctxs[i].nodeInfo==_END and\
+#                  i+1<len(ctxs) and (ctxs[i+1].nodeInfo in [_MID,_END]):
+#                 return " "
+#             else:
+#                 return "|"
+#         return (*(vertSymb(i,False).ljust(layerLength+ctxs[i].padding," ") for i in range(0,splitIndex))
+#                ,*(vertSymb(i,True).ljust(layerLength+ctxs[i].padding,"_") for i in range(splitIndex,len(ctxs)))
+#                ,leafContent
+#                ,'\n'
+#                )
+#     return ''.join(chain(*starmap(renderLeaf,pathInfos)))
 
         
 
 
-# supposed treetype: 
-# def strParseTree(tree:TreeLike, indent=0, padding=0, alignLeaves=0, layerLength=6)->list[str]:
+# def strParseTree(tree:RoseTree, indent=0, padding=0, alignLeaves=0, layerLength=6): #->list[str]
+#     def collectInfo
 #     if len(tree.children)==0:
 #         return [str(tree.content)]
 #     else:
