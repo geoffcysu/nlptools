@@ -56,19 +56,15 @@ class RoseTree:
     def children(self):
         return self._children
 
-class SyntaxTreeParentAssignmentError(Exception):
-    pass
 
 class SyntaxTree(RoseTree):
     _content : Union[str,Token]
     _children : list['SyntaxTree']
     _parent : Optional['SyntaxTree']
-    _parent_is_setable:int
     def __init__(self,content:str, children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
         self._content = content
         self._children = children
         self._parent = parent
-        _parent_is_setable = True if parent is None else False
     @property
     def content(self):
         return self._content
@@ -80,12 +76,8 @@ class SyntaxTree(RoseTree):
         return self._parent
     @parent.setter
     def parent(self, newParent):
-        if self._parent_is_setable:
-            self._parent = newParent
-            self._parent_is_setable = False
-        else:
-            raise SyntaxTreeParentAssignmentError("A syntaxTree can only be assigned to a parent once.")
-
+        self._parent = newParent
+        
     def addChild(self,child:'SyntaxTree'):
         self._children.append(child)
         child.parent = self
