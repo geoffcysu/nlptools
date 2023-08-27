@@ -132,17 +132,18 @@ def phrase(name:str,*subs:parsy.Parser):
 
 # t phrasal rule: <t1>aaa</t1><t2>bbb</t2> (let t2 be optional)
 
-tt = phrase( 't'
+_tt = phrase( 't'
            , posToken('t1')  
            , posToken('t2').optional())
 
 # recursion: <cons>xxx</cons><cons>ggg</cons><nil>hhh</nil>
 
-
-# lst = phrase( 'L' 
-#             , 
-#             , 
-#             )
+_lst = parsy.forward_declaration()
+_lst.become(phrase( 'lst' 
+            , posToken('cons')
+            , _lst | posToken('nil')
+            )
+)
 
 
     
