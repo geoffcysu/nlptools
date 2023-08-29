@@ -4,6 +4,7 @@ from typing import Optional, TypeVar, Generic, Literal, Union
 from itertools import chain, starmap
 from functools import partial, reduce
 from collections.abc import Sequence, Callable, Iterable
+import re
 from dataclasses import dataclass
 
 _A,_B,_C = TypeVar('_A'),TypeVar('_B'),TypeVar('_C')
@@ -18,7 +19,7 @@ class Token:
         self.pos = pos
         self.text = text
     def __str__(self):
-        return self.pos + "___" + self.text
+        return f'{self.pos}({self.text})'
     def __repr__(self):
         return f'Token({self.pos},{self.text})'
 
@@ -203,6 +204,7 @@ def posToken(pos:str):
 #     else:
 #         return parser
 
+
 def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
     def f(*subs):
         nsubs = list(filter(lambda x:x is not None, subs))
@@ -212,21 +214,54 @@ def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
 
 # t phrasal rule: <t1>aaa</t1><t2>bbb</t2> (let t2 be optional)
 
-_tt = phrase( 't'
-           , posToken('t1')  
-           , posToken('t2').optional())
+# tt = parsy.seq( posToken('t1')  
+#                , posToken('t2').optional()
+#                ).combine()
 
 # recursion: <cons>xxx</cons><cons>ggg</cons><nil>hhh</nil>
 
-_lst = parsy.forward_declaration()
-_lst.become(phrase( 'lst' 
-            , posToken('cons')
-            , _lst | posToken('nil')
-            )
+lst = parsy.forward_declaration()
+lst.become(
+    posToken('nil')
+    | parsy.seq(posToken('cons'), lst).combine(lambda c,l:SyntaxTree('lst',[c,l]))
 )
+'''
+{
+    lst:' nil
+        | cons lst?'
+}
+[[['nil',None]]
+,[['cons',None],['lst','?']]
+]
+'''
+
+  
+
+def parseOneRule(s:str):
+    toks = re.findall(r'\w+|\||\?|(|)',s)
 
 
-    
+expr = parsy.forward_declaration()
+bar = parsy.forward_declaration()
+atom = parsy.forward_declaration()
+expr.become(parsy.fail("") | bar) #The 'fail' part is for avoiding a likely bug of parsy.
+
+bar.become(
+    atom.sep_by(parsy.match_item('|'))
+    )
+def testword(x:str)->bool:
+    return re.match(r'\w+',x) is not None
+def filterNone(xs):
+    return list(filter(lambda x:x is not None, xs))
+atom.become(
+    parsy.seq( parsy.test_item(testword,'word')
+             , parsy.match_item('?').optional()
+             ).many()
+    | parsy.seq( parsy.match_item('(') >> expr << parsy.match_item(')')
+               , parsy.match_item('?').optional()
+               )
+    )
+
 _rt_sample1 = RoseTree('P',
     RoseTree('P1', 
         RoseTree('1'),
