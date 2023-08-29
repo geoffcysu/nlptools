@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 import parsy
 from typing import Optional, TypeVar, Generic, Literal, Union
 from itertools import chain, starmap
@@ -125,9 +125,9 @@ class Pos:
 
 
 
-
+# Made a mistake here: trying to handle what has been done by parsy already.
 class Phrase:
-    _opt_rules : list[list[Union[Pos, 'Phrase']]]
+    _opt_rules : list[list[Union[Pos, Phrase]]]
     # list represents optional rules
     # second list represents the sequence of each rule
     _parser : Optional[parsy.Parser]
@@ -136,9 +136,9 @@ class Phrase:
         self.name = name
         self._opt_rules = []
     
-    def to(self, *seqRule:Union[Pos,'Phrase']):
+    def to(self, *seqRule:Union[Pos,Phrase]):
         for (i,p) in enumerate(seqRule):
-            assert type(p)==Pos or type(p)=='Phrase', f"The {i}th input should be a Pos or Phrase."
+            assert isinstance(p,Pos) or isinstance(p,Phrase), f"The {i}th input should be a Pos or Phrase."
         self._opt_rules.append(list(seqRule))
         self._parser = None
     
@@ -150,11 +150,11 @@ class Phrase:
                         << parsy.string(f'</{p.name}>')).map(lambda x:Token(p.name,x))
             return tokenParser.map(lambda t:SyntaxTree(t))
         
-        def _genPhraseParser(ph : 'Phrase')->parsy.Parser:
-            def shunt(x:Union[Pos,'Phrase'])->parsy.Parser:
+        def _genPhraseParser(ph : Phrase)->parsy.Parser: #need to check if it's strictly Parser[SyntaxTree]
+            def shunt(x:Union[Pos,Phrase])->parsy.Parser:
                 if isinstance(x,Pos):
                     return _genPosParser(x)
-                elif isinstance(x,'Phrase'):
+                elif isinstance(x,Phrase):
                     return _genPhraseParser(x)
                 else:
                     raise TypeError("Received something other than Pos or Phrase.")
@@ -165,7 +165,7 @@ class Phrase:
                     return SyntaxTree(self.name,nsubs)
                 return parsy.seq(*iterseq).combine(f)
             
-            def compileOneRule(x:list[Union[Pos,'Phrase']])->parsy.Parser:
+            def compileOneRule(x:list[Union[Pos,Phrase]])->parsy.Parser:
                 return buildSeqSyntaxTreeParser(map(shunt,x))
             
             return parsy.alt(*map(compileOneRule, self._opt_rules))
@@ -179,8 +179,14 @@ class Phrase:
             self._parser = self.compileParser()
         return self._parser.parse(source)
 
-tt = Phrase('tt')
-tt.to()
+
+# another implimentation idea: Phrase should return a real parser
+# what about the rules?
+
+npExample = '<adj>beautiful</adj><adj>white</adj><noun>fall</noun>'
+NP = Phrase('NP')
+NP.to(Pos('adj'), NP)
+NP.to(Pos('noun'))
 
 
 ###################################################
