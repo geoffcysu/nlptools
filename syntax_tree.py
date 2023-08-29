@@ -2,8 +2,14 @@
 import parsy
 from typing import Optional, TypeVar, Generic, Literal, Union
 from itertools import chain, starmap
-from functools import partial
+from functools import partial, reduce
 from collections.abc import Sequence, Callable, Iterable
+from dataclasses import dataclass
+
+_A,_B,_C = TypeVar('_A'),TypeVar('_B'),TypeVar('_C')
+# function composition
+def c(f:Callable[[_B],_C], g:Callable[[_A],_B])->Callable[[_A],_C]:
+    return lambda x:f(g(x))
 
 class Token:
     pos : str
@@ -111,6 +117,74 @@ class SyntaxTree(RoseTree):
     
 
 
+
+
+@dataclass
+class Pos:
+    name : str
+
+
+
+
+class Phrase:
+    _opt_rules : list[list[Union[Pos, 'Phrase']]]
+    # list represents optional rules
+    # second list represents the sequence of each rule
+    _parser : Optional[parsy.Parser]
+    name : str
+    def __init__(self, name:str):
+        self.name = name
+        self._opt_rules = []
+    
+    def to(self, *seqRule:Union[Pos,'Phrase']):
+        for (i,p) in enumerate(seqRule):
+            assert type(p)==Pos or type(p)=='Phrase', f"The {i}th input should be a Pos or Phrase."
+        self._opt_rules.append(list(seqRule))
+        self._parser = None
+    
+    def compileParser(self)->parsy.Parser:
+
+        def _genPosParser(p:Pos)->parsy.Parser:
+            tokenParser = (parsy.string(f'<{p.name}>') 
+                        >> parsy.regex(r'[^<]*') 
+                        << parsy.string(f'</{p.name}>')).map(lambda x:Token(p.name,x))
+            return tokenParser.map(lambda t:SyntaxTree(t))
+        
+        def _genPhraseParser(ph : 'Phrase')->parsy.Parser:
+            def shunt(x:Union[Pos,'Phrase'])->parsy.Parser:
+                if isinstance(x,Pos):
+                    return _genPosParser(x)
+                elif isinstance(x,'Phrase'):
+                    return _genPhraseParser(x)
+                else:
+                    raise TypeError("Received something other than Pos or Phrase.")
+            
+            def buildSeqSyntaxTreeParser(iterseq:Iterable[parsy.Parser])->parsy.Parser:
+                def f(*subs):
+                    nsubs = list(filter(lambda x:x is not None, subs))
+                    return SyntaxTree(self.name,nsubs)
+                return parsy.seq(*iterseq).combine(f)
+            
+            def compileOneRule(x:list[Union[Pos,'Phrase']])->parsy.Parser:
+                return buildSeqSyntaxTreeParser(map(shunt,x))
+            
+            return parsy.alt(*map(compileOneRule, self._opt_rules))
+            
+
+        self._parser = _genPhraseParser(self)
+        return self._parser
+        
+    def parse(self,source:str):
+        if self._parser is None:
+            self._parser = self.compileParser()
+        return self._parser.parse(source)
+
+tt = Phrase('tt')
+tt.to()
+
+
+###################################################
+
 def posToken(pos:str):
     tokenParser = (parsy.string(f'<{pos}>') 
                 >> parsy.regex(r'[^<]*') 
@@ -123,7 +197,7 @@ def posToken(pos:str):
 #     else:
 #         return parser
 
-def phrase(name:str,*subs:parsy.Parser):
+def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
     def f(*subs):
         nsubs = list(filter(lambda x:x is not None, subs))
         return SyntaxTree(name,nsubs)
