@@ -1,6 +1,6 @@
 from __future__ import annotations
 import parsy
-from typing import Optional, TypeVar, Generic, Literal, Union
+from typing import Optional, TypeVar, Generic, Literal, Union, Any
 from itertools import chain, starmap
 from functools import partial, reduce
 from collections.abc import Sequence, Callable, Iterable
@@ -124,8 +124,6 @@ class SyntaxTree(RoseTree):
 class Pos:
     name : str
 
-
-
 # Made a mistake here: trying to handle what has been done by parsy already.
 class Phrase:
     _opt_rules : list[list[Union[Pos, Phrase]]]
@@ -226,41 +224,98 @@ lst.become(
     | parsy.seq(posToken('cons'), lst).combine(lambda c,l:SyntaxTree('lst',[c,l]))
 )
 '''
-{
-    lst:' nil
-        | cons lst?'
-}
+
+lst -> nil
+       | cons lst?
+
 [[['nil',None]]
 ,[['cons',None],['lst','?']]
 ]
+
+Remember to consider the usage that ENTITY -> ENTITY_noun | ENTITY_oov | ...
+Now it seems fine to just let 'ENTITY' be a phrase-like thing.
 '''
 
-  
+ruleEx1 = ''' 
+lst -> nil
+    | cons lst?
+'''
+ruleEx2 = 'rule -> abc  (dce? | GGG+ ) FFF*'  
 
-def parseOneRule(s:str):
-    toks = re.findall(r'\w+|\||\?|(|)',s)
+def match_items(xs:Sequence)->parsy.Parser:
+    if len(xs)==0:
+        return parsy.fail("no item to match")
+    else:
+        return reduce(lambda p,i: p | parsy.match_item(i)
+                    , xs[1:]
+                    , parsy.match_item(xs[0]))
 
 
-expr = parsy.forward_declaration()
 bar = parsy.forward_declaration()
-atom = parsy.forward_declaration()
-expr.become(parsy.fail("") | bar) #The 'fail' part is for avoiding a likely bug of parsy.
+term = parsy.forward_declaration()
+rule = bar
 
+def plusTrans(terms:list[SyntaxTree])->SyntaxTree:
+    pass
+plus = term.at_least(1).map(plusTrans)
 bar.become(
-    atom.sep_by(parsy.match_item('|'))
+    plus.sep_by(parsy.match_item('|'))
     )
-def testword(x:str)->bool:
-    return re.match(r'\w+',x) is not None
-def filterNone(xs):
-    return list(filter(lambda x:x is not None, xs))
-atom.become(
-    parsy.seq( parsy.test_item(testword,'word')
-             , parsy.match_item('?').optional()
-             ).many()
-    | parsy.seq( parsy.match_item('(') >> expr << parsy.match_item(')')
-               , parsy.match_item('?').optional()
-               )
+
+
+def test_regex(regex:str, desc:str)->parsy.Parser:
+    return parsy.test_item(lambda x: re.match(regex,x) is not None, desc)
+
+term.become(
+    parsy.seq( parsy.match_item('(') >> rule << parsy.match_item(')')
+             , match_items('?+*').optional()
+             ).combine()
+    | parsy.seq( test_regex(r'\w+','word')
+               , match_items('?+*').optional()
+               ).combine(lambda w,o:posToken(w))
     )
+
+# syntaxRulesParser = parsy.seq( test_regex(r'\n\w+','\\nword')
+#                        , parsy.match_item('->')
+#                        , rule
+#                        ).many()
+
+def syntaxRulesParser(phraseSet:set[str], posSet:set[str])->parsy.Parser:
+    @parsy.generate
+    def parser():
+        return parsy.success('good')
+    return parser
+
+
+def tokenize(s:str)->list[str]:
+    return re.findall(r'\w+|\||[?+*]|\(|\)',s)
+
+class DuplicateRule(Exception):
+    "Raised when duplicated phrase appears."
+    def __init__(self,word:str):
+        super().__init__(f'The rule: \"{word}\" is duplicated.')
+
+def parserOfRules(ruleStr:str):
+    words = re.findall(r'\n\w+|\w+', ruleStr)
+    def identifyWords(ws:list[str])->tuple[set[str], set[str]]:
+        phraseSet = set([])
+        posSet = set([])
+        for w in ws:
+            if w[0]=='\n':
+                if w[1:] in phraseSet:
+                    raise DuplicateRule(w[1:])
+                else:
+                    phraseSet.add(w[1:])
+            elif w not in phraseSet:
+                posSet.add(w)
+            else:
+                pass
+        return (phraseSet,posSet)
+    phraseSet, posSet = identifyWords(words)
+    toks = re.findall(r'\n\w+|\w+|\||[?+*]|\(|\)|->', ruleStr)
+    return syntaxRulesParser(phraseSet,posSet).parse(toks)
+    
+
 
 _rt_sample1 = RoseTree('P',
     RoseTree('P1', 
