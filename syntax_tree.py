@@ -182,10 +182,10 @@ class Phrase:
 # another implimentation idea: Phrase should return a real parser
 # what about the rules?
 
-npExample = '<adj>beautiful</adj><adj>white</adj><noun>fall</noun>'
-NP = Phrase('NP')
-NP.to(Pos('adj'), NP)
-NP.to(Pos('noun'))
+# npExample = '<adj>beautiful</adj><adj>white</adj><noun>fall</noun>'
+# NP = Phrase('NP')
+# NP.to(Pos('adj'), NP)
+# NP.to(Pos('noun'))
 
 
 ###################################################
@@ -218,6 +218,8 @@ def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
 
 # recursion: <cons>xxx</cons><cons>ggg</cons><nil>hhh</nil>
 
+
+# new approach: generate parser that build into this form:
 lst = parsy.forward_declaration()
 lst.become(
     posToken('nil')
@@ -241,6 +243,10 @@ lst -> nil
     | cons lst?
 '''
 ruleEx2 = 'rule -> abc  (dce? | GGG+ ) FFF*'  
+ruleEx3 = '''
+p1 -> a | p2
+p2 -> p1 | b
+'''
 
 def match_items(xs:Sequence)->parsy.Parser:
     if len(xs)==0:
@@ -253,11 +259,16 @@ def match_items(xs:Sequence)->parsy.Parser:
 
 bar = parsy.forward_declaration()
 term = parsy.forward_declaration()
-rule = bar
+def termOf(phrase:str)->parsy.Parser:
+def plusOf(phrase:str)->parsy.Parser:
+    term.at_least(1)
+def barOf(phrase:str)->parsy.Parser:
+    return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
+def ruleOf(phrase:str)->parsy.Parser:
+    return barOf(phrase)
 
-def plusTrans(terms:list[SyntaxTree])->SyntaxTree:
-    pass
-plus = term.at_least(1).map(plusTrans)
+rule = bar
+plus = term.at_least(1)
 bar.become(
     plus.sep_by(parsy.match_item('|'))
     )
@@ -269,7 +280,7 @@ def test_regex(regex:str, desc:str)->parsy.Parser:
 term.become(
     parsy.seq( parsy.match_item('(') >> rule << parsy.match_item(')')
              , match_items('?+*').optional()
-             ).combine()
+             )
     | parsy.seq( test_regex(r'\w+','word')
                , match_items('?+*').optional()
                ).combine(lambda w,o:posToken(w))
@@ -282,9 +293,11 @@ term.become(
 
 def syntaxRulesParser(phraseSet:set[str], posSet:set[str])->parsy.Parser:
     @parsy.generate
-    def parser():
-        return parsy.success('good')
-    return parser
+    def oneRule():
+        phraseName = yield test_regex(r'\n\w+','\\nword')
+        yield parsy.match_item('->')
+        return ruleOf(phraseName)
+    return oneRule.many().#getting a list of parsers, need to combine them into a new parser
 
 
 def tokenize(s:str)->list[str]:
@@ -339,6 +352,4 @@ _rt_sample1 = RoseTree('P',
 #     |    |____P5___5
 #     |         |____6
 #     |____7
-
-
 
