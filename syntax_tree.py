@@ -196,9 +196,16 @@ def posToken(pos:str):#Parser[SyntaxTree]
                 << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
     return tokenParser.map(lambda t:SyntaxTree(t))
 
-def starSyntaxTree(x:str)->Callable[Any,SyntaxTree]:
+def posTokenOf(pos:str, parent:SyntaxTree):#Parser[SyntaxTree]
+    tokenParser = (parsy.string(f'<{pos}>') 
+                >> parsy.regex(r'[^<]*') 
+                << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
+    return tokenParser.map(lambda t:SyntaxTree(t,[],parent))
+
+
+def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[Any,SyntaxTree]:
     def f(*args)->SyntaxTree:
-        return SyntaxTree(x,args)
+        return SyntaxTree(x,args,parent)
     return f
 
 
@@ -297,7 +304,7 @@ def termOf(phrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     def word():
         w = yield test_regex(r'\w+','word')
         op = yield match_items('?+*').optional()
-        wp = posToken(w)
+        wp = posTokenOf(w,phrase)
         if op is None:
             return ParserWrapper(wp)
         elif op == '?':
@@ -308,11 +315,10 @@ def termOf(phrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
             return ParserWrapper(wp.many())
         else:
             raise Exception('none exhaustive error')
-    
-    return word #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
+
+    return word.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
 def plusOf(phrase:str)->parsy.Parser:
-    #term.at_least(1)
-    return parsy.success('')
+    return termOf(phrase).at_least(1)
 def barOf(phrase:str)->parsy.Parser:
     #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
     return parsy.success('')
