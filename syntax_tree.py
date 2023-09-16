@@ -318,6 +318,7 @@ def termOf(phrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
 
     return word.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
 def plusOf(phrase:str)->parsy.Parser:
+    parsy.seq('list of parser').combine(starSyntaxTree('lst'))
     return termOf(phrase).at_least(1)
 def barOf(phrase:str)->parsy.Parser:
     #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
