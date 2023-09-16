@@ -190,11 +190,19 @@ class Phrase:
 
 ###################################################
 
-def posToken(pos:str):
+def posToken(pos:str):#Parser[SyntaxTree]
     tokenParser = (parsy.string(f'<{pos}>') 
                 >> parsy.regex(r'[^<]*') 
                 << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
     return tokenParser.map(lambda t:SyntaxTree(t))
+
+def starSyntaxTree(x:str)->Callable[Any,SyntaxTree]:
+    def f(*args)->SyntaxTree:
+        return SyntaxTree(x,args)
+    return f
+
+
+
 
 # def optParser(parser:Optional[parsy.Parser]):
 #     if parser is None:
@@ -223,8 +231,9 @@ def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
 lst = parsy.forward_declaration()
 lst.become(
     posToken('nil')
-    | parsy.seq(posToken('cons'), lst).combine(lambda c,l:SyntaxTree('lst',[c,l]))
+    | parsy.seq(posToken('cons'), lst).combine(starSyntaxTree('lst'))
 )
+listExample = "<cons>a</cons><cons>b</cons><nil>e</nil>"
 '''
 
 lst -> nil
@@ -238,6 +247,20 @@ Remember to consider the usage that ENTITY -> ENTITY_noun | ENTITY_oov | ...
 Now it seems fine to just let 'ENTITY' be a phrase-like thing.
 '''
 
+'''
+VP -> Specifier V'
+V' -> 
+       V NP
+   | Adjunct V'
+   | V' Adjunct
+
+'''
+
+ruleEx0 = '''
+NP -> adj NP
+    | n
+    | 
+'''
 ruleEx1 = ''' 
 lst -> nil
     | cons lst?
@@ -247,6 +270,14 @@ ruleEx3 = '''
 p1 -> a | p2
 p2 -> p1 | b
 '''
+
+# use this wrapper inside @parsy.generate functions (due to the inconsistent behaviour when output is a parser)
+class ParserWrapper:
+    _parser : parsy.Parser
+    def __init__(self,parser):
+        self._parser = parser
+    def __call__(self):
+        return self._parser
 
 def match_items(xs:Sequence)->parsy.Parser:
     if len(xs)==0:
@@ -259,13 +290,34 @@ def match_items(xs:Sequence)->parsy.Parser:
 
 bar = parsy.forward_declaration()
 term = parsy.forward_declaration()
-def termOf(phrase:str)->parsy.Parser:
+def ruleOf(phrase:str)->parsy.Parser:#Parser[Parser[Syntax]]
+    ...
+def termOf(phrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
+    @parsy.generate
+    def word():
+        w = yield test_regex(r'\w+','word')
+        op = yield match_items('?+*').optional()
+        wp = posToken(w)
+        if op is None:
+            return ParserWrapper(wp)
+        elif op == '?':
+            return ParserWrapper(wp.optional())
+        elif op == '+':
+            return ParserWrapper(wp.at_least(1))
+        elif op == '*':
+            return ParserWrapper(wp.many())
+        else:
+            raise Exception('none exhaustive error')
+    
+    return word #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
 def plusOf(phrase:str)->parsy.Parser:
-    term.at_least(1)
+    #term.at_least(1)
+    return parsy.success('')
 def barOf(phrase:str)->parsy.Parser:
-    return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
-def ruleOf(phrase:str)->parsy.Parser:
-    return barOf(phrase)
+    #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
+    return parsy.success('')
+#def ruleOf(phrase:str)->parsy.Parser: #Parser[Parser[Syntax]]
+ruleOf =  barOf(phrase)
 
 rule = bar
 plus = term.at_least(1)
@@ -291,13 +343,14 @@ term.become(
 #                        , rule
 #                        ).many()
 
-def syntaxRulesParser(phraseSet:set[str], posSet:set[str])->parsy.Parser:
+def syntaxRulesParser(phraseSet:set[str], posSet:set[str])->parsy.Parser: #Parser[Parser[SyntaxTree]]
     @parsy.generate
-    def oneRule():
+    def oneRule():#-> Parser[Parser[SyntaxTree]]
         phraseName = yield test_regex(r'\n\w+','\\nword')
         yield parsy.match_item('->')
         return ruleOf(phraseName)
-    return oneRule.many().#getting a list of parsers, need to combine them into a new parser
+    oneRule.many() #list[Parser[SyntaxTree]]
+    return parsy.success('') #oneRule.many().#getting a list of parsers, need to combine them into a new parser
 
 
 def tokenize(s:str)->list[str]:
@@ -308,7 +361,7 @@ class DuplicateRule(Exception):
     def __init__(self,word:str):
         super().__init__(f'The rule: \"{word}\" is duplicated.')
 
-def parserOfRules(ruleStr:str):
+def parserOfRules(ruleStr:str): #->Parser[SyntaxTree]
     words = re.findall(r'\n\w+|\w+', ruleStr)
     def identifyWords(ws:list[str])->tuple[set[str], set[str]]:
         phraseSet = set([])
