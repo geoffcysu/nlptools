@@ -4,6 +4,7 @@ from typing import Optional, TypeVar, Generic, Literal, Union, Any
 from itertools import chain, starmap
 from functools import partial, reduce
 from collections.abc import Sequence, Callable, Iterable
+import operator
 import re
 from dataclasses import dataclass
 
@@ -203,9 +204,9 @@ def posTokenOf(pos:str, parent:SyntaxTree):#Parser[SyntaxTree]
     return tokenParser.map(lambda t:SyntaxTree(t,[],parent))
 
 
-def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[Any,SyntaxTree]:
+def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[[Any],SyntaxTree]:
     def f(*args)->SyntaxTree:
-        return SyntaxTree(x,args,parent)
+        return SyntaxTree(name,list(args),parent)
     return f
 
 
@@ -294,37 +295,45 @@ def match_items(xs:Sequence)->parsy.Parser:
                     , xs[1:]
                     , parsy.match_item(xs[0]))
 
+def _addParent(p:SyntaxTree)->Callable[[SyntaxTree],None]:
+    def f(t:SyntaxTree)->None:
+        t.parent = p
+    return f
 
-bar = parsy.forward_declaration()
-term = parsy.forward_declaration()
-def ruleOf(phrase:str)->parsy.Parser:#Parser[Parser[Syntax]]
-    ...
-def termOf(phrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
-    @parsy.generate
-    def word():
-        w = yield test_regex(r'\w+','word')
-        op = yield match_items('?+*').optional()
-        wp = posTokenOf(w,phrase)
-        if op is None:
-            return ParserWrapper(wp)
-        elif op == '?':
-            return ParserWrapper(wp.optional())
-        elif op == '+':
-            return ParserWrapper(wp.at_least(1))
-        elif op == '*':
-            return ParserWrapper(wp.many())
-        else:
-            raise Exception('none exhaustive error')
+# bar = parsy.forward_declaration()
+# term = parsy.forward_declaration()
+# def ruleOf(phrase:str)->parsy.Parser:#Parser[Parser[Syntax]]
+#     ...
+@parsy.generate
+def _term_word(): #ParsesrWrapper[Parser[SyntaxTree]]
+    w = yield test_regex(r'\w+','word')
+    op = yield match_items('?+*').optional()
+    wp = posToken(w)
+    if op is None:
+        return ParserWrapper(wp)
+    elif op == '?':
+        return ParserWrapper(wp.optional())
+    elif op == '+':
+        return ParserWrapper(wp.at_least(1))
+    elif op == '*':
+        return ParserWrapper(wp.many())
+    else:
+        raise Exception('none exhaustive error')
 
-    return word.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
-def plusOf(phrase:str)->parsy.Parser:
-    parsy.seq('list of parser').combine(starSyntaxTree('lst'))
-    return termOf(phrase).at_least(1)
-def barOf(phrase:str)->parsy.Parser:
-    #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
-    return parsy.success('')
-#def ruleOf(phrase:str)->parsy.Parser: #Parser[Parser[Syntax]]
-ruleOf =  barOf(phrase)
+term:parsy.Parser = _term_word.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
+
+plus = term.at_least(1).map(lambda pl:reduce(operator.add ,pl))
+
+# def plusOf()->parsy.Parser:
+#     parsy.seq('list of parser').combine(starSyntaxTree('lst'))
+#     return termOf(phrase).at_least(1)
+# def barOf(phrase:str)->parsy.Parser:
+#     #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
+#     return parsy.success('')
+def ruleOf(phrase:str)->parsy.Parser: #Parser[Parser[Syntax]]
+    resultParser = plus.sep_by(parsy.match_item('|'), min=1).map(lambda pl:reduce(operator.mul,pl))
+    return barOf(phrase)
+
 
 rule = bar
 plus = term.at_least(1)
