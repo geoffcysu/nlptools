@@ -3,14 +3,14 @@ import parsy
 from typing import Optional, TypeVar, Generic, Literal, Union, Any
 from itertools import chain, starmap
 from functools import partial, reduce
-from collections.abc import Sequence, Callable, Iterable
+from collections.abc import Sequence, Callable, Iterable, Set
 import operator
 import re
 from dataclasses import dataclass
 
 _A,_B,_C = TypeVar('_A'),TypeVar('_B'),TypeVar('_C')
 # function composition
-def c(f:Callable[[_B],_C], g:Callable[[_A],_B])->Callable[[_A],_C]:
+def c2(f:Callable[[_B],_C], g:Callable[[_A],_B])->Callable[[_A],_C]:
     return lambda x:f(g(x))
 
 class Token:
@@ -300,27 +300,69 @@ def _addParent(p:SyntaxTree)->Callable[[SyntaxTree],None]:
         t.parent = p
     return f
 
+class ParsingContext:
+    _phraseSet : Set[str]
+    _phraseParser : dict[str,parsy.Parser]
+    def __init__(self,phraseSet:Set[str]):
+        self._phraseSet = phraseSet
+        d = {}
+        for w in phraseSet:
+            assert re.fullmatch(r'\w+',w), "phrase should be matched with '\\w+'"
+            d[w] = parsy.forward_declaration()
+        self._phraseParser = d
+    @property
+    def phraseSet(self)->Set[str]:
+        return self._phraseSet
+    @property
+    def phraseParser(self)->dict[str,parsy.Parser]:
+        return self._phraseParser
+
 # bar = parsy.forward_declaration()
 # term = parsy.forward_declaration()
 # def ruleOf(phrase:str)->parsy.Parser:#Parser[Parser[Syntax]]
 #     ...
-@parsy.generate
-def _term_word(): #ParsesrWrapper[Parser[SyntaxTree]]
-    w = yield test_regex(r'\w+','word')
-    op = yield match_items('?+*').optional()
-    wp = posToken(w)
-    if op is None:
-        return ParserWrapper(wp)
-    elif op == '?':
-        return ParserWrapper(wp.optional())
-    elif op == '+':
-        return ParserWrapper(wp.at_least(1))
-    elif op == '*':
-        return ParserWrapper(wp.many())
-    else:
-        raise Exception('none exhaustive error')
+# @parsy.generate
+# def _term_posToken(): #ParsesrWrapper[Parser[SyntaxTree]]
+#     w = yield test_regex(r'\w+','posToken')
+#     op = yield match_items('?+*').optional()
+#     wp = posToken(w)
+#     if op is None:
+#         return ParserWrapper(wp)
+#     elif op == '?':
+#         return ParserWrapper(wp.optional())
+#     elif op == '+':
+#         return ParserWrapper(wp.at_least(1))
+#     elif op == '*':
+#         return ParserWrapper(wp.many())
+#     else:
+#         raise Exception('none exhaustive error')
 
-term:parsy.Parser = _term_word.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
+# term:parsy.Parser = _term_posToken.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
+def termOf(ctx:ParsingContext)->parsy.Parser:
+    def addComb(op:Optional[str], p:parsy.Parser)->parsy.Parser:
+        if op is None:
+            return p
+        elif op == '?':
+            return p.optional()
+        elif op == '+':
+            return p.at_least(1)
+        elif op == '*':
+            return p.many()
+        else:
+            raise Exception('none exhaustive error')
+        
+    def f(res:tuple[str,Optional[Literal['?','+','*']]])->parsy.Parser: #Parser[Parser[SyntaxTree]]
+        termName:str = res[0]
+        combMatch:Optional[Literal['?','+','*']] = res[1] 
+        return addComb(combMatch
+                       , ctx.phraseParser[termName] if termName in ctx.phraseSet 
+                         else posToken(termName)
+                       )
+        
+    return parsy.seq(test_regex(r'\w+','term')
+                    , match_items('?+*').optional()
+           ).map(c2(f,tuple))
+
 
 plus = term.at_least(1).map(lambda pl:reduce(operator.add ,pl))
 
