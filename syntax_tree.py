@@ -301,6 +301,7 @@ def _addParent(p:SyntaxTree)->Callable[[SyntaxTree],None]:
     return f
 
 class ParsingContext:
+    _parsingPhrase : Optional[str]
     _phraseSet : Set[str]
     _phraseParser : dict[str,parsy.Parser]
     def __init__(self,phraseSet:Set[str]):
@@ -310,6 +311,14 @@ class ParsingContext:
             assert re.fullmatch(r'\w+',w), "phrase should be matched with '\\w+'"
             d[w] = parsy.forward_declaration()
         self._phraseParser = d
+        self._parsingPhrase = None
+    @property
+    def parsingPhrase(self):
+        return self._parsingPhrase
+    @parsingPhrase.setter
+    def parsingPhrase(self,pp):
+        assert (pp is None) or (pp in self._phraseSet), "parsingPhrase should be a member of phraseSet"
+        self._parsingPhrase = pp 
     @property
     def phraseSet(self)->Set[str]:
         return self._phraseSet
@@ -338,7 +347,7 @@ class ParsingContext:
 #         raise Exception('none exhaustive error')
 
 # term:parsy.Parser = _term_posToken.map(lambda f:f()) #| (parsy.match_item('(') >> ruleOf << parsy.match_item(')'))
-def termOf(ctx:ParsingContext)->parsy.Parser:
+def termOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     def addComb(op:Optional[str], p:parsy.Parser)->parsy.Parser:
         if op is None:
             return p
@@ -359,42 +368,43 @@ def termOf(ctx:ParsingContext)->parsy.Parser:
                          else posToken(termName)
                        )
         
-    return parsy.seq(test_regex(r'\w+','term')
-                    , match_items('?+*').optional()
-           ).map(c2(f,tuple))
+    return parsy.alt(
+             #(parsy.match_item('(') >> ruleOf(ctx) << parsy.match_item(')')), 
+             parsy.seq(test_regex(r'\w+','term')
+                       , match_items('?+*').optional()
+               ).map(c2(f,tuple))
+             )
 
 
-plus = term.at_least(1).map(lambda pl:reduce(operator.add ,pl))
+def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
+    assert ctx.parsingPhrase is not None,\
+      "A parsingPhrase should be given to the parsing context \
+       (through 'ctx.parsingPhrase = ...') before starting to parse."
+    
+    pp = ctx.parsingPhrase
+    def f(lp:list[parsy.Parser])->parsy.Parser: #list[Parser[SyntaxTree]] -> Parser[SyntaxTree]
+        return parsy.seq(*lp).combine(starSyntaxTree(pp))
+    return termOf(ctx).at_least(1).map(f)
 
-# def plusOf()->parsy.Parser:
-#     parsy.seq('list of parser').combine(starSyntaxTree('lst'))
-#     return termOf(phrase).at_least(1)
-# def barOf(phrase:str)->parsy.Parser:
-#     #return plusOf(phrase).sep_by(parsy.match_item('|')).map(lambda lt:)
-#     return parsy.success('')
-def ruleOf(phrase:str)->parsy.Parser: #Parser[Parser[Syntax]]
-    resultParser = plus.sep_by(parsy.match_item('|'), min=1).map(lambda pl:reduce(operator.mul,pl))
-    return barOf(phrase)
+def ruleOf(ctx:ParsingContext,parsingPhrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
+    ctx.parsingPhrase = parsingPhrase
+    result = plusOf(ctx).sep_by(parsy.match_item('|'), min=1).map(lambda pl:parsy.alt(*pl))
+    ctx.parsingPhrase = None
+    return result
 
-
-rule = bar
-plus = term.at_least(1)
-bar.become(
-    plus.sep_by(parsy.match_item('|'))
-    )
 
 
 def test_regex(regex:str, desc:str)->parsy.Parser:
     return parsy.test_item(lambda x: re.match(regex,x) is not None, desc)
 
-term.become(
-    parsy.seq( parsy.match_item('(') >> rule << parsy.match_item(')')
-             , match_items('?+*').optional()
-             )
-    | parsy.seq( test_regex(r'\w+','word')
-               , match_items('?+*').optional()
-               ).combine(lambda w,o:posToken(w))
-    )
+# term.become(
+#     parsy.seq( parsy.match_item('(') >> rule << parsy.match_item(')')
+#              , match_items('?+*').optional()
+#              )
+#     | parsy.seq( test_regex(r'\w+','word')
+#                , match_items('?+*').optional()
+#                ).combine(lambda w,o:posToken(w))
+#     )
 
 # syntaxRulesParser = parsy.seq( test_regex(r'\n\w+','\\nword')
 #                        , parsy.match_item('->')
