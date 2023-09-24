@@ -304,13 +304,23 @@ class ParsingContext:
     _parsingPhrase : Optional[str]
     _phraseSet : Set[str]
     _phraseParser : dict[str,parsy.Parser]
+    "Initially empty, see _initPP."
+    _initPP : dict[str,parsy.forward_declaration]
+    '''
+    Will be initialized with `parsy.forword_declaration()`, then updated 
+    when the phrase parser is completed; the new parser will then be moved to phraseParser.
+    The updating behaviour should be done through the `setPhraseParser` method.
+    (currently doing in the `ruleOf` function.)
+    '''
+    
     def __init__(self,phraseSet:Set[str]):
         self._phraseSet = phraseSet
         d = {}
         for w in phraseSet:
             assert re.fullmatch(r'\w+',w), "phrase should be matched with '\\w+'"
             d[w] = parsy.forward_declaration()
-        self._phraseParser = d
+        self._initPP = d
+        self._phraseParser = {}
         self._parsingPhrase = None
     @property
     def parsingPhrase(self):
@@ -322,9 +332,15 @@ class ParsingContext:
     @property
     def phraseSet(self)->Set[str]:
         return self._phraseSet
+    
     @property
     def phraseParser(self)->dict[str,parsy.Parser]:
         return self._phraseParser
+    def setPhraseParser(self,phrase:str,p:parsy.Parser)->parsy.Parser:
+        assert phrase in self._initPP.keys(), "A phrase can be set only once, or that the phrase doesn't exist."
+        self._initPP[phrase].become(p)
+        self._phraseParser[phrase] = self._initPP.pop(phrase)
+        return p
 
 # bar = parsy.forward_declaration()
 # term = parsy.forward_declaration()
@@ -388,11 +404,12 @@ def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
 
 def ruleOf(ctx:ParsingContext,parsingPhrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     ctx.parsingPhrase = parsingPhrase
-    result = plusOf(ctx).sep_by(parsy.match_item('|'), min=1).map(lambda pl:parsy.alt(*pl))
+    result = plusOf(ctx)\
+             .sep_by(parsy.match_item('|'), min=1)\
+             .map(lambda pl:parsy.alt(*pl))
+    ctx.setPhraseParser(parsingPhrase,result)
     ctx.parsingPhrase = None
     return result
-
-
 
 def test_regex(regex:str, desc:str)->parsy.Parser:
     return parsy.test_item(lambda x: re.match(regex,x) is not None, desc)
@@ -411,12 +428,12 @@ def test_regex(regex:str, desc:str)->parsy.Parser:
 #                        , rule
 #                        ).many()
 
-def syntaxRulesParser(phraseSet:set[str], posSet:set[str])->parsy.Parser: #Parser[Parser[SyntaxTree]]
+def syntaxRulesParser(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     @parsy.generate
-    def oneRule():#-> Parser[Parser[SyntaxTree]]
+    def oneRule():
         phraseName = yield test_regex(r'\n\w+','\\nword')
         yield parsy.match_item('->')
-        return ruleOf(phraseName)
+        return (phraseName,ruleOf(ctx,phraseName))
     oneRule.many() #list[Parser[SyntaxTree]]
     return parsy.success('') #oneRule.many().#getting a list of parsers, need to combine them into a new parser
 
