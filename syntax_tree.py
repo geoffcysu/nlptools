@@ -333,9 +333,15 @@ class ParsingContext:
     def phraseSet(self)->Set[str]:
         return self._phraseSet
     
-    @property
-    def phraseParser(self)->dict[str,parsy.Parser]:
-        return self._phraseParser
+    
+    def phraseParser(self,key:str)->parsy.Parser:
+        if key in self._phraseParser.keys():
+            return self._phraseParser[key]
+        elif key in self._initPP.keys():
+            return self._initPP[key]
+        else:
+            raise KeyError("The phrase to lookup doesn't exist.")
+        
     def setPhraseParser(self,phrase:str,p:parsy.Parser)->parsy.Parser:
         assert phrase in self._initPP.keys(), "A phrase can be set only once, or that the phrase doesn't exist."
         self._initPP[phrase].become(p)
@@ -398,6 +404,7 @@ def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
        (through 'ctx.parsingPhrase = ...') before starting to parse."
     
     pp = ctx.parsingPhrase
+    ppParser = ctx.
     def f(lp:list[parsy.Parser])->parsy.Parser: #list[Parser[SyntaxTree]] -> Parser[SyntaxTree]
         return parsy.seq(*lp).combine(starSyntaxTree(pp))
     return termOf(ctx).at_least(1).map(f)
