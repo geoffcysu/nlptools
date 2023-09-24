@@ -386,7 +386,7 @@ def termOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
         termName:str = res[0]
         combMatch:Optional[Literal['?','+','*']] = res[1] 
         return addComb(combMatch
-                       , ctx.phraseParser[termName] if termName in ctx.phraseSet 
+                       , ctx.phraseParser(termName) if termName in ctx.phraseSet 
                          else posToken(termName)
                        )
         
@@ -404,9 +404,9 @@ def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
        (through 'ctx.parsingPhrase = ...') before starting to parse."
     
     pp = ctx.parsingPhrase
-    ppParser = ctx.
+    ppParser = ctx.phraseParser(pp)
     def f(lp:list[parsy.Parser])->parsy.Parser: #list[Parser[SyntaxTree]] -> Parser[SyntaxTree]
-        return parsy.seq(*lp).combine(starSyntaxTree(pp))
+        return parsy.seq(*lp).combine(starSyntaxTree(pp)).map()#_addParent?
     return termOf(ctx).at_least(1).map(f)
 
 def ruleOf(ctx:ParsingContext,parsingPhrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
