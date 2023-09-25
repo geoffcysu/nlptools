@@ -107,6 +107,12 @@ class SyntaxTree(RoseTree):
     def addChildren(self,children:list['SyntaxTree']):
         for child in children:
             self.addChild(child)
+    def surveyParentInfo(self):
+        for c in self._children:
+            c._parent = self
+            if isinstance(c.content, str):
+                c.surveyParentInfo()
+
     def __repr__(self):
         return f"Tree({self.content},{self._children})"
     def compactFormatStr(self, layerLength=6) -> str:
@@ -295,10 +301,6 @@ def match_items(xs:Sequence)->parsy.Parser:
                     , xs[1:]
                     , parsy.match_item(xs[0]))
 
-def _addParent(p:SyntaxTree)->Callable[[SyntaxTree],None]:
-    def f(t:SyntaxTree)->None:
-        t.parent = p
-    return f
 
 class ParsingContext:
     _parsingPhrase : Optional[str]
@@ -404,9 +406,8 @@ def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
        (through 'ctx.parsingPhrase = ...') before starting to parse."
     
     pp = ctx.parsingPhrase
-    ppParser = ctx.phraseParser(pp)
     def f(lp:list[parsy.Parser])->parsy.Parser: #list[Parser[SyntaxTree]] -> Parser[SyntaxTree]
-        return parsy.seq(*lp).combine(starSyntaxTree(pp)).map()#_addParent?
+        return parsy.seq(*lp).combine(starSyntaxTree(pp))
     return termOf(ctx).at_least(1).map(f)
 
 def ruleOf(ctx:ParsingContext,parsingPhrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
