@@ -211,8 +211,13 @@ def posTokenOf(pos:str, parent:SyntaxTree):#Parser[SyntaxTree]
 
 
 def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[[Any],SyntaxTree]:
+    "If the argument contains any None, it will be filtered out."
+    
+    def filterNone(lst):
+        "Used for when a parser is an optional."
+        return [x for x in lst if x is not None]
     def f(*args)->SyntaxTree:
-        return SyntaxTree(name,list(args),parent)
+        return SyntaxTree(name,filterNone(args),parent)
     return f
 
 
@@ -242,6 +247,7 @@ def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
 
 
 # new approach: generate parser that build into this form:
+#new problem: is nested (parens rule) structure applicable?
 lst = parsy.forward_declaration()
 lst.become(
     posToken('nil')
@@ -393,7 +399,7 @@ def termOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
                        )
         
     return parsy.alt(
-             #(parsy.match_item('(') >> ruleOf(ctx) << parsy.match_item(')')), 
+             #(parsy.match_item('(') >> altOf(ctx) << parsy.match_item(')')), 
              parsy.seq(test_regex(r'\w+','term')
                        , match_items('?+*').optional()
                ).map(c2(f,tuple))
@@ -410,11 +416,15 @@ def plusOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
         return parsy.seq(*lp).combine(starSyntaxTree(pp))
     return termOf(ctx).at_least(1).map(f)
 
+def altOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
+    return plusOf(ctx)\
+           .sep_by(parsy.match_item('|'), min=1)\
+           .map(lambda pl:parsy.alt(*pl))
+    
+
 def ruleOf(ctx:ParsingContext,parsingPhrase:str)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     ctx.parsingPhrase = parsingPhrase
-    result = plusOf(ctx)\
-             .sep_by(parsy.match_item('|'), min=1)\
-             .map(lambda pl:parsy.alt(*pl))
+    result = altOf(ctx)
     ctx.setPhraseParser(parsingPhrase,result)
     ctx.parsingPhrase = None
     return result
