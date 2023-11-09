@@ -279,11 +279,11 @@ V' ->
 ruleEx0 = '''
 NP -> adj NP
     | n
-    | 
+
 '''
 ruleEx1 = ''' 
 lst -> nil
-    | cons lst?
+    | cons lst
 '''
 ruleEx2 = 'rule -> abc  (dce? | GGG+ ) FFF*'  
 ruleEx3 = '''
@@ -309,6 +309,10 @@ def match_items(xs:Sequence)->parsy.Parser:
 
 
 class ParsingContext:
+    """
+    Initialized with a phrase set, then update the actual parser (with `setPhraseParser`) throughout
+    the parsing procedure.
+    """
     _parsingPhrase : Optional[str]
     _phraseSet : Set[str]
     _phraseParser : dict[str,parsy.Parser]
@@ -336,6 +340,7 @@ class ParsingContext:
     @parsingPhrase.setter
     def parsingPhrase(self,pp):
         assert (pp is None) or (pp in self._phraseSet), "parsingPhrase should be a member of phraseSet"
+        #
         self._parsingPhrase = pp 
     @property
     def phraseSet(self)->Set[str]:
@@ -388,7 +393,7 @@ def termOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
         elif op == '*':
             return p.many()
         else:
-            raise Exception('none exhaustive error')
+            raise Exception('non-exhaustive error')
         
     def f(res:tuple[str,Optional[Literal['?','+','*']]])->parsy.Parser: #Parser[Parser[SyntaxTree]]
         termName:str = res[0]
@@ -403,6 +408,7 @@ def termOf(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
              parsy.seq(test_regex(r'\w+','term')
                        , match_items('?+*').optional()
                ).map(c2(f,tuple))
+                #note: map is used to transfer the parsing result into the parser we want.
              )
 
 
@@ -449,22 +455,35 @@ def test_regex(regex:str, desc:str)->parsy.Parser:
 def syntaxRulesParser(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
     @parsy.generate
     def oneRule():
+        """
+        Parses a rule such as:
+        P -> a | b
+        """
         phraseName = yield test_regex(r'\n\w+','\\nword')
         yield parsy.match_item('->')
         return (phraseName,ruleOf(ctx,phraseName))
+    
+    #how to pass the parsing context one after one?
+    """
+    The result of parsing becomes the parsing context, how do I transfer it into a parser?
+    """
     oneRule.many() #list[Parser[SyntaxTree]]
     return parsy.success('') #oneRule.many().#getting a list of parsers, need to combine them into a new parser
 
 
-def tokenize(s:str)->list[str]:
-    return re.findall(r'\w+|\||[?+*]|\(|\)',s)
+# def tokenize(s:str)->list[str]:
+#     return re.findall(r'\w+|\||[?+*]|\(|\)',s)
 
 class DuplicateRule(Exception):
     "Raised when duplicated phrase appears."
     def __init__(self,word:str):
         super().__init__(f'The rule: \"{word}\" is duplicated.')
 
+
+# The entrypoint
 def parserOfRules(ruleStr:str): #->Parser[SyntaxTree]
+    
+    # Finding all phrase token and POS token.
     words = re.findall(r'\n\w+|\w+', ruleStr)
     def identifyWords(ws:list[str])->tuple[set[str], set[str]]:
         phraseSet = set([])
@@ -481,8 +500,10 @@ def parserOfRules(ruleStr:str): #->Parser[SyntaxTree]
                 pass
         return (phraseSet,posSet)
     phraseSet, posSet = identifyWords(words)
+
+    # Tokenizing
     toks = re.findall(r'\n\w+|\w+|\||[?+*]|\(|\)|->', ruleStr)
-    return syntaxRulesParser(phraseSet,posSet).parse(toks)
+    return syntaxRulesParser(ParsingContext(phraseSet)).parse(toks)
     
 
 
