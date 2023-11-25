@@ -122,7 +122,13 @@ class SyntaxTree(RoseTree):
     def pprint(self, *args):
         print(self.compactFormatStr(*args))
     
-    
+#### wrapped parser-------------
+
+class Parser(Generic[_A]):
+    _parser: parsy.Parser
+    def parse()
+
+#####---------------     
 
 
 
