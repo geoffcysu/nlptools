@@ -1,1 +1,6 @@
 DROIDTOWN.json
+venv/*
+.DS_Store
+demo.py
+live.py
+mmmc.py
