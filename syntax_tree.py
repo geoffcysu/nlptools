@@ -1,14 +1,15 @@
 from __future__ import annotations
 import parsy
-from typing import Optional, TypeVar, Generic, Literal, Union, Any
+from typing import Optional, TypeVar, Generic, Literal, Union, Any, Type, Callable, Tuple, Dict
 from itertools import chain, starmap
 from functools import partial, reduce
 from collections.abc import Sequence, Callable, Iterable, Set
 import operator
 import re
 from dataclasses import dataclass
+from typing_extensions import Protocol
 
-_A,_B,_C = TypeVar('_A'),TypeVar('_B'),TypeVar('_C')
+_A,_B,_C,_T = TypeVar('_A'),TypeVar('_B'),TypeVar('_C'),TypeVar('_T')
 # function composition
 def c2(f:Callable[[_B],_C], g:Callable[[_A],_B])->Callable[[_A],_C]:
     return lambda x:f(g(x))
@@ -25,13 +26,19 @@ class Token:
         return f'Token({self.pos},{self.text})'
 
 class RoseTree:
-    _children:list['RoseTree']
-    def __init__(self,content,*args:'RoseTree'):
+    children:list['RoseTree']
+    def __init__(self,content, children:Sequence['RoseTree']=[]):
         self.content = content
-        self._children = list(args)
-    @property
-    def children(self):
-        return self._children
+        self.children = list(children)
+
+    def copy(self)->RoseTree:
+        "The content will be the reference if it's an object."
+        if len(self.children)==0:
+            return RoseTree(self.content,[])
+        else:
+            return RoseTree(self.content, 
+                            list(map(RoseTree.copy, self.children)))
+        
     def compactFormatStr(self, layerLength=6)->str:
         def render(tree:RoseTree)->list[str]:
             if len(tree.children)==0:
@@ -81,40 +88,40 @@ class RoseTree:
 
 
 class SyntaxTree(RoseTree):
-    _content : Union[str,Token]
-    _children : list['SyntaxTree']
-    _parent : Optional['SyntaxTree']
-    def __init__(self,content:str, children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
-        self._content = content
-        self._children = children
-        self._parent = parent
-    @property
-    def content(self):
-        return self._content
-    @property
-    def children(self):
-        return self._children
-    @property
-    def parent(self):
-        return self._parent
-    @parent.setter
-    def parent(self, newParent):
-        self._parent = newParent
+    content : Union[str,Token]
+    children : list['SyntaxTree']
+    parent : Optional['SyntaxTree']
+    def __init__(self,content:Union[str,Token], children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
+        self.content = content
+        self.children = children
+        self.parent = parent
         
     def addChild(self,child:'SyntaxTree'):
-        self._children.append(child)
+        self.children.append(child)
         child.parent = self
     def addChildren(self,children:list['SyntaxTree']):
         for child in children:
             self.addChild(child)
-    def surveyParentInfo(self):
-        for c in self._children:
-            c._parent = self
+    def registerParentInfo(self)->'SyntaxTree':
+        """
+        Used to update parenthood info to a non-parent-registered tree.
+        """
+        for c in self.children:
+            c.parent = self
             if isinstance(c.content, str):
-                c.surveyParentInfo()
+                c.registerParentInfo()
+        return self
+    
+    def copy(self)->'SyntaxTree':
+        if len(self.children)==0:
+            return SyntaxTree(self.content,children=[],parent=self.parent)
+        else:
+            return SyntaxTree(self.content, 
+                              list(map(SyntaxTree.copy, self.children)), 
+                              self.parent)
 
     def __repr__(self):
-        return f"Tree({self.content},{self._children})"
+        return f"Tree({self.content},{self.children})"
     def compactFormatStr(self, layerLength=6) -> str:
         return super().compactFormatStr(layerLength)
     def ppstr(self, *args):
@@ -126,95 +133,81 @@ class SyntaxTree(RoseTree):
 
 class Parser(Generic[_A]):
     _parser: parsy.Parser
-    def parse()
+    def __init__(self,p:parsy.Parser):
+        self._parser = p
+    def parse(self,str)->_A:
+        return self._parser.parse(str)
+    def map(self,f:Callable[[_A],_T])->Parser[_T]:
+        return Parser(self._parser.map(f))
+    
+    def combine(self, f:Callable[[Any],_B])->Parser[_B]:
+        return Parser(self._parser.combine(f))
+    def combine_dict(self, f:Callable[[Any],_B])->Parser[_B]:
+        return Parser(self._parser.combine_dict(f))
+    def become(self, p:Parser[_A])->Parser[_A]:
+        if 'become' in dir(self._parser):
+            self._parser.become(p._parser) #type:ignore
+            return self
+        else:
+            raise Exception("No `become` method.")
+    def __or__(self, other: Parser[_A]) -> Parser[_A]:
+        return alt(self,other)
+
+def alt(*parsers: Parser[_T]) -> Parser[_T]:
+    return Parser(parsy.alt(*[p._parser for p in parsers]))
+
+def seq(*args:Parser, **kwargs:Parser)->Parser[Tuple[Parser,...]]:
+    return Parser(parsy.seq(*map(lambda p:p._parser,args),
+                             **dict(map(lambda k_v:(k_v[0], k_v[1]._parser), 
+                                        kwargs.items()))))
+
+def forward_declaration()->Parser[Any]:
+    return Parser(parsy.forward_declaration())
+
 
 #####---------------     
 
 
 
-
-@dataclass
-class Pos:
-    name : str
-
-# Made a mistake here: trying to handle what has been done by parsy already.
-class Phrase:
-    _opt_rules : list[list[Union[Pos, Phrase]]]
-    # list represents optional rules
-    # second list represents the sequence of each rule
-    _parser : Optional[parsy.Parser]
-    name : str
-    def __init__(self, name:str):
-        self.name = name
-        self._opt_rules = []
-    
-    def to(self, *seqRule:Union[Pos,Phrase]):
-        for (i,p) in enumerate(seqRule):
-            assert isinstance(p,Pos) or isinstance(p,Phrase), f"The {i}th input should be a Pos or Phrase."
-        self._opt_rules.append(list(seqRule))
-        self._parser = None
-    
-    def compileParser(self)->parsy.Parser:
-
-        def _genPosParser(p:Pos)->parsy.Parser:
-            tokenParser = (parsy.string(f'<{p.name}>') 
-                        >> parsy.regex(r'[^<]*') 
-                        << parsy.string(f'</{p.name}>')).map(lambda x:Token(p.name,x))
-            return tokenParser.map(lambda t:SyntaxTree(t))
-        
-        def _genPhraseParser(ph : Phrase)->parsy.Parser: #need to check if it's strictly Parser[SyntaxTree]
-            def shunt(x:Union[Pos,Phrase])->parsy.Parser:
-                if isinstance(x,Pos):
-                    return _genPosParser(x)
-                elif isinstance(x,Phrase):
-                    return _genPhraseParser(x)
-                else:
-                    raise TypeError("Received something other than Pos or Phrase.")
-            
-            def buildSeqSyntaxTreeParser(iterseq:Iterable[parsy.Parser])->parsy.Parser:
-                def f(*subs):
-                    nsubs = list(filter(lambda x:x is not None, subs))
-                    return SyntaxTree(self.name,nsubs)
-                return parsy.seq(*iterseq).combine(f)
-            
-            def compileOneRule(x:list[Union[Pos,Phrase]])->parsy.Parser:
-                return buildSeqSyntaxTreeParser(map(shunt,x))
-            
-            return parsy.alt(*map(compileOneRule, self._opt_rules))
-            
-
-        self._parser = _genPhraseParser(self)
-        return self._parser
-        
-    def parse(self,source:str):
-        if self._parser is None:
-            self._parser = self.compileParser()
-        return self._parser.parse(source)
-
-
-# another implimentation idea: Phrase should return a real parser
-# what about the rules?
-
-# npExample = '<adj>beautiful</adj><adj>white</adj><noun>fall</noun>'
-# NP = Phrase('NP')
-# NP.to(Pos('adj'), NP)
-# NP.to(Pos('noun'))
-
-
 ###################################################
 
-def posToken(pos:str):#Parser[SyntaxTree]
-    tokenParser = (parsy.string(f'<{pos}>') 
-                >> parsy.regex(r'[^<]*') 
-                << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
-    return tokenParser.map(lambda t:SyntaxTree(t))
+def _regToken(reg:str)->parsy.Parser:
+    @parsy.generate
+    def f():
+        yield parsy.string('<')
+        pos = yield parsy.regex(reg)
+        yield parsy.string('>')
+        content = yield parsy.regex('[^<]*')
+        yield parsy.regex(f'</{pos}>')
+        return SyntaxTree(Token(pos,content))
+    
+    f.desc('regToken')
+    return f
 
-def posTokenOf(pos:str, parent:SyntaxTree):#Parser[SyntaxTree]
-    tokenParser = (parsy.string(f'<{pos}>') 
-                >> parsy.regex(r'[^<]*') 
-                << parsy.string(f'</{pos}>')).map(lambda x:Token(pos,x))
-    return tokenParser.map(lambda t:SyntaxTree(t,[],parent))
+def regToken(reg:str)->Parser[SyntaxTree]:
+    return Parser(_regToken(reg))
 
+def posToken(pos:str)->Parser[SyntaxTree]:
+    res = regToken(pos)
+    res._parser.desc('posToken')
+    return res
+
+def addParent_im(parent:SyntaxTree, p:Parser[SyntaxTree])->Parser[SyntaxTree]:
+    "Copy the result SyntaxTree of the parser then add the parent to it. "
+    def f(st:SyntaxTree)->SyntaxTree:
+        newst = st.copy()
+        newst.parent = parent
+        return st
+    return p.map(f)
+
+def addParent(parent:SyntaxTree, p:Parser[SyntaxTree])->Parser[SyntaxTree]:
+    """
+    This alters the result of the given parser, instead of generating a new one.
+    """
+    def f(st:SyntaxTree)->SyntaxTree:
+        st.parent = parent
+        return st
+    return p.map(f)
 
 def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[[Any],SyntaxTree]:
     "If the argument contains any None, it will be filtered out."
@@ -229,18 +222,12 @@ def starSyntaxTree(name:str,parent:Optional[SyntaxTree]=None)->Callable[[Any],Sy
 
 
 
-# def optParser(parser:Optional[parsy.Parser]):
-#     if parser is None:
-#         return parsy.success(None)
-#     else:
-#         return parser
-
-
-def phrase(name:str,*subs:parsy.Parser)->parsy.Parser:
+# IS THIS USED?
+def phrase(name:str,*subs:Parser[Optional[SyntaxTree]])->Parser[SyntaxTree]:
     def f(*subs):
         nsubs = list(filter(lambda x:x is not None, subs))
         return SyntaxTree(name,nsubs)
-    return parsy.seq(*subs).combine(f)
+    return seq(*subs).combine(f)
 
 
 # t phrasal rule: <t1>aaa</t1><t2>bbb</t2> (let t2 be optional)
@@ -316,14 +303,18 @@ def match_items(xs:Sequence)->parsy.Parser:
 
 class ParsingContext:
     """
-    Initialized with a phrase set, then update the actual parser (with `setPhraseParser`) throughout
-    the parsing procedure.
+    Initialized with a set of phrase(rule) name, then update the actual parser 
+    (with `setPhraseParser`) throughout the parsing procedure.
+    Usage: 
+    1. `parsingPhrase`: setting/getting the parsing phrase(rule) name.
+    2. `phraseParser(str)`: getting the parser of the phrase name.
+    3. `setPhraseParser(str,parsy.Parser)`: assigning the finished parser to the phrase.
     """
     _parsingPhrase : Optional[str]
     _phraseSet : Set[str]
-    _phraseParser : dict[str,parsy.Parser]
+    _phraseParser : dict[str,Parser[SyntaxTree]]
     "Initially empty, see _initPP."
-    _initPP : dict[str,parsy.forward_declaration]
+    _initPP : dict[str,Parser[SyntaxTree]]
     '''
     Will be initialized with `parsy.forword_declaration()`, then updated 
     when the phrase parser is completed; the new parser will then be moved to phraseParser.
@@ -333,10 +324,10 @@ class ParsingContext:
     
     def __init__(self,phraseSet:Set[str]):
         self._phraseSet = phraseSet
-        d = {}
+        d : Dict[str,Parser[SyntaxTree]]= {}
         for w in phraseSet:
             assert re.fullmatch(r'\w+',w), "phrase should be matched with '\\w+'"
-            d[w] = parsy.forward_declaration()
+            d[w] = forward_declaration()
         self._initPP = d
         self._phraseParser = {}
         self._parsingPhrase = None
@@ -353,7 +344,7 @@ class ParsingContext:
         return self._phraseSet
     
     
-    def phraseParser(self,key:str)->parsy.Parser:
+    def phraseParser(self,key:str)->Parser[SyntaxTree]:
         if key in self._phraseParser.keys():
             return self._phraseParser[key]
         elif key in self._initPP.keys():
@@ -361,8 +352,8 @@ class ParsingContext:
         else:
             raise KeyError("The phrase to lookup doesn't exist.")
         
-    def setPhraseParser(self,phrase:str,p:parsy.Parser)->parsy.Parser:
-        assert phrase in self._initPP.keys(), "A phrase can be set only once, or that the phrase doesn't exist."
+    def setPhraseParser(self,phrase:str,p:Parser[SyntaxTree])->Parser[SyntaxTree]:
+        assert phrase in self._initPP.keys(), "The phrase doesn't exist, or it might have been set already."
         self._initPP[phrase].become(p)
         self._phraseParser[phrase] = self._initPP.pop(phrase)
         return p
@@ -458,9 +449,17 @@ def test_regex(regex:str, desc:str)->parsy.Parser:
 #                        , rule
 #                        ).many()
 
-def syntaxRulesParser(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTree]]
+@dataclass
+class FinalParsingResult:
+    rules: Dict[str, Parser[SyntaxTree]]
+
+    def singleEntry(self)->Parser[SyntaxTree]:
+        return alt(*self.rules.values())
+        
+
+def syntaxRulesParser(ctx:ParsingContext)->Parser[FinalParsingResult]:
     @parsy.generate
-    def oneRule():
+    def _oneRule():
         """
         Parses a rule such as:
         P -> a | b
@@ -468,17 +467,22 @@ def syntaxRulesParser(ctx:ParsingContext)->parsy.Parser: #Parser[Parser[SyntaxTr
         phraseName = yield test_regex(r'\n\w+','\\nword')
         yield parsy.match_item('->')
         return (phraseName,ruleOf(ctx,phraseName))
-    
-    #how to pass the parsing context one after one?
-    """
-    The result of parsing becomes the parsing context, how do I transfer it into a parser?
-    """
-    oneRule.many() #list[Parser[SyntaxTree]]
-    return parsy.success('') #oneRule.many().#getting a list of parsers, need to combine them into a new parser
+    #oneRule:Parser[Tuple[str,Parser[SyntaxTree]]] = Parser(_oneRule)
 
+    @parsy.generate
+    def _manyRules():
+        result = FinalParsingResult({})
+        while True:
+            rule : Optional[Tuple[str,Parser[SyntaxTree]]] = yield _oneRule.optional()
+            if rule is None:
+                return result
+            else:
+                result.rules[rule[0]] = rule[1]
+    manyRules : Parser[FinalParsingResult] = Parser(_manyRules)
+    # Just wrapping it.
 
-# def tokenize(s:str)->list[str]:
-#     return re.findall(r'\w+|\||[?+*]|\(|\)',s)
+    return manyRules
+
 
 class DuplicateRule(Exception):
     "Raised when duplicated phrase appears."
@@ -487,7 +491,7 @@ class DuplicateRule(Exception):
 
 
 # The entrypoint
-def parserOfRules(ruleStr:str): #->Parser[SyntaxTree]
+def parserOfRules(ruleStr:str)->FinalParsingResult:
     
     # Finding all phrase token and POS token.
     words = re.findall(r'\n\w+|\w+', ruleStr)
@@ -514,19 +518,24 @@ def parserOfRules(ruleStr:str): #->Parser[SyntaxTree]
 
 
 _rt_sample1 = RoseTree('P',
-    RoseTree('P1', 
-        RoseTree('1'),
-        RoseTree('2')),
-    RoseTree('P2',
-        RoseTree('3')),
-    RoseTree('P3',
-        RoseTree('P4', 
-            RoseTree('4'),
-            RoseTree('P5',
-                RoseTree('5'),
-                RoseTree('6'))),
-        RoseTree('7')
-    )
+    [RoseTree('P1',
+        [RoseTree('1')
+        ,RoseTree('2')
+        ])
+        
+    ,RoseTree('P2',
+        [RoseTree('3')])
+    ,RoseTree('P3',
+        [RoseTree('P4', 
+            [RoseTree('4')
+            ,RoseTree('P5',
+                [RoseTree('5')
+                ,RoseTree('6')]
+                )
+            ])
+        ,RoseTree('7')
+        ])
+    ]
 )
 # P___P1____1
 # |   |_____2

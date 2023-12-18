@@ -1,5 +1,5 @@
 DROIDTOWN.json
-venv/*
+nlpvenv/*
 .DS_Store
 demo.py
 live.py
