@@ -4,12 +4,12 @@ import re
 import pprint as pp
 import parsy
 from typing import Optional, TypeVar, Generic, Literal, Union
-from itertools import chain, starmap
+from itertools import chain, starmap,groupby
 from functools import partial
 from dataclasses import dataclass
 from collections.abc import Sequence, Callable, Iterable
 
-from syntax_tree import *
+#from syntax_tree import *
 
 username = ""
 apikey   = ""
@@ -32,8 +32,13 @@ inputSTR= '蓼葉堇菜（學名：）是堇菜科堇菜屬的植物。分布在
 # with open("sample.json", "w",encoding='utf-8') as outfile:
 #     json.dump(resultDICT, outfile, ensure_ascii=False, indent=4)
 
-resultDICT = {}
-with open('sample.json','r+') as f:
-    resultDICT = json.load(f)
+# resultDICT = {}
+# with open('sample.json','r+') as f:
+#     resultDICT = json.load(f)
 
+# # trying the groupby function
+# things = [("animal", "bear"), ("animal", "duck"), ("plant", "cactus"), ("vehicle", "speed boat"), ("vehicle", "school bus")]
+# groups = [list(group) for key,group in groupby(things, lambda x: x[0])]
 
+class CC():
+    def __class_getitem__()

@@ -14,7 +14,7 @@ _A,_B,_C,_T = TypeVar('_A'),TypeVar('_B'),TypeVar('_C'),TypeVar('_T')
 def c2(f:Callable[[_B],_C], g:Callable[[_A],_B])->Callable[[_A],_C]:
     return lambda x:f(g(x))
 
-class Token:
+class PosToken:
     pos : str
     text : str
     def __init__(self,pos:str,text:str):
@@ -23,7 +23,7 @@ class Token:
     def __str__(self):
         return f'{self.pos}({self.text})'
     def __repr__(self):
-        return f'Token({self.pos},{self.text})'
+        return f'PosToken({self.pos},{self.text})'
 
 class RoseTree:
     children:list['RoseTree']
@@ -88,10 +88,10 @@ class RoseTree:
 
 
 class SyntaxTree(RoseTree):
-    content : Union[str,Token]
+    content : Union[str,PosToken]
     children : list['SyntaxTree']
     parent : Optional['SyntaxTree']
-    def __init__(self,content:Union[str,Token], children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
+    def __init__(self,content:Union[str,PosToken], children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
         self.content = content
         self.children = children
         self.parent = parent
@@ -166,6 +166,61 @@ def forward_declaration()->Parser[Any]:
 
 
 #####---------------     
+#rule structure
+
+""" Haskell equivalence:
+data RuleTerm = Token PosToken
+              | RuleName str
+              | Alt [RuleTerm]
+              | Seq [RuleTerm]
+              | Opt RuleTerm 
+
+data RuleDef = RuleDef str RuleTerm
+"""
+
+
+class RuleTerm:
+    __d: tuple
+    __ctor: Callable
+    def __init__(self,ctor:Callable[...,RuleTerm],d:tuple):
+        self.__d = d
+        self.__ctor = ctor
+    def match(self,
+                token: Callable[[PosToken],_T],
+                ruleName: Callable[[str],_T],
+                alt:Callable[[list[RuleTerm]],_T],
+                seq:Callable[[list[RuleTerm]],_T],
+                opt:Callable[[RuleTerm],_T],
+                )->_T:
+        if self.__ctor == Token:
+            return token(*self.__d)
+        elif self.__ctor == RuleName:
+            return ruleName(*self.__d)
+        elif self.__ctor == Alt:
+            return alt(*self.__d)
+        elif self.__ctor == Seq:
+            return seq(*self.__d)
+        elif self.__ctor == Opt:
+            return opt(*self.__d)
+        else:
+            raise Exception(f'Failed to pattern match {str(self)}.')
+
+def Token(a1:PosToken)->RuleTerm:
+    return RuleTerm(Token,(a1,))
+def RuleName(a1:str)->RuleTerm:
+    return RuleTerm(RuleName,(a1,))
+def Alt(a1:list[RuleTerm])->RuleTerm:
+    return RuleTerm(Alt,(a1,))
+def Seq(a1:list[RuleTerm])->RuleTerm:
+    return RuleTerm(Seq,(a1,))
+def Opt(a1:RuleTerm)->RuleTerm:
+    return RuleTerm(Opt,(a1,))
+
+
+@dataclass
+class RuleDef:
+    ruleName:str
+    ruleTerm:RuleTerm
 
 
 
@@ -179,7 +234,7 @@ def _regToken(reg:str)->parsy.Parser:
         yield parsy.string('>')
         content = yield parsy.regex('[^<]*')
         yield parsy.regex(f'</{pos}>')
-        return SyntaxTree(Token(pos,content))
+        return SyntaxTree(PosToken(pos,content))
     
     f.desc('regToken')
     return f
@@ -241,12 +296,12 @@ def phrase(name:str,*subs:Parser[Optional[SyntaxTree]])->Parser[SyntaxTree]:
 
 # new approach: generate parser that build into this form:
 #new problem: is nested (parens rule) structure applicable?
-lst = parsy.forward_declaration()
-lst.become(
-    posToken('nil')
-    | parsy.seq(posToken('cons'), lst).combine(starSyntaxTree('lst'))
-)
-listExample = "<cons>a</cons><cons>b</cons><nil>e</nil>"
+# lst = parsy.forward_declaration()
+# lst.become(
+#     posToken('nil')
+#     | parsy.seq(posToken('cons'), lst).combine(starSyntaxTree('lst'))
+# )
+# listExample = "<cons>a</cons><cons>b</cons><nil>e</nil>"
 '''
 
 lst -> nil
