@@ -16,6 +16,11 @@ tree = parserDict.ruleParser['p1'].parse(text1)
 """
 Use tree.ppstr() to get the string of the pretty-printting-string,
 or tree.pprint() to directly print it.
+
+should print the below text in this case:
+p1____a(x)
+|_____p2____p1____a(y)
+            |_____p2____b(0)
 """
 
 #------------RoseTree example------------
