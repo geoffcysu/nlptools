@@ -4,3 +4,4 @@ nlpvenv/*
 demo.py
 live.py
 mmmc.py
+*__pycache__
