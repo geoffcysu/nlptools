@@ -1,15 +1,8 @@
-from __future__ import annotations
-import parsy
-from typing import Optional, TypeVar, Generic, Literal, Union, Any, Type, Callable, Tuple, Dict
-from itertools import chain, starmap
-from functools import partial, reduce
-from collections.abc import Sequence, Callable, Iterable, Set
-import operator
-import re
-from dataclasses import dataclass
+
+from typing import TypeVar
 _A,_B,_C,_T = TypeVar('_A'),TypeVar('_B'),TypeVar('_C'),TypeVar('_T')
 
-#-------------
+#----------syntax_tree example(s)--------
 from syntax_tree.parser import parserOfRules
 
 rule1 = '''
