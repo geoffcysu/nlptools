@@ -116,12 +116,12 @@ class TypeExpr:
     def replacedStr(self,replace_map:Dict[str,str])->str:
         x = replace_map.get(self.typeName)
         replaced = x if x else self.typeName
-        if len(self.args)==0:
-            return replaced
-        else:
+        if self.args:#len>0
             return "{}[{}]".format(replaced, 
                                    ','.join(map(lambda x:x.replacedStr(replace_map),
                                                 self.args)))
+        else:
+            return replaced
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -139,16 +139,6 @@ class CtorArg:
 
 def lowercase_head(name:str)->str:
     return name[0].lower()+name[1:]
-# def typeExpr_convert(typevar_map:Dict[str,str],te:TypeExpr)->str:
-#     if len(te.args) == 0:
-#         converted = typevar_map.get(te.typeName)
-#         return converted if converted else te.typeName
-#     else:
-#         return "{}[{}]".format(
-#             te.typeName,
-#             ','.join(map(lambda x:typeExpr_convert(typevar_map,x), 
-#                          te.args))
-#         )
 
 class Ctor:
     ctorName:str
@@ -161,8 +151,10 @@ class Ctor:
         self.ctorName = ctorName
         self.args = args
     def __str__(self):
-        return self.ctorName + \
-                f"({'' if len(self.args)==0 else ','.join(map(str,self.args))})"
+        return "{}({})".format(
+            self.ctorName,
+            ','.join(map(str,self.args)) if self.args else ""
+        )
     def __repr__(self) -> str:
         return self.__str__()
     
@@ -183,7 +175,7 @@ class DataDef:
     def __str__(self):
         return "data {}{} = {}".format(
                     self.typeName,
-                    '' if len(self.typeVars)==0 else f"[{','.join(self.typeVars)}]",
+                    f"[{','.join(self.typeVars)}]" if self.typeVars else "",
                     '\n\t| '.join(map(str,self.ctors))
                     )
     def __repr__(self) -> str:
@@ -332,7 +324,7 @@ def gen_typedef(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
     "Generate the class for the type, e.g., List"
     ctors = dataDef.ctors
     inherit_part = "(Generic[{}])".format(','.join([typevars[tn] for tn in dataDef.typeVars]))\
-                        if len(dataDef.typeVars) != 0 else ""
+                        if dataDef.typeVars else ""
     
     #description
     ctorNum = len(ctors)
@@ -350,9 +342,19 @@ def gen_typedef(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
         (indent+line for line in gen_match_signature(typevars,dataDef)),
         [indent*2+"..."]
     )
-def gen_ctors():
-    "Generate the class for a constructor, e.g., Cons"
-    ...
+def gen_one_ctor()->Iterator[str]:
+    thetype = 
+    inherit_part =""
+    fields=""
+    return chain(
+        [f"class {dataDef.typeName}({inherit_part}):"]
+    )
+def gen_ctors(typevars:Dict[str,str], dataDef: DataDef)->Iterator[str]:
+    """
+    Generate the class for a constructor, e.g., Cons, including the checking 
+    method, e.g., `def isCons(x:Lst[_A])->TypeGuard[Cons[_A]]`
+    """
+    
 
 def gen_one_DataDef(typevars:Dict[str,str], dataDef: DataDef)->Iterator[str]:
     ...
