@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable
+from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable, Iterator
 from functools import partial
 from itertools import chain,count
 import sys
@@ -269,22 +269,25 @@ def parseAST(stream:List[str])->List[DataDef]:
 
 ###--------------- Code Generation ---------------------
 
-def generate_code(datas:List[DataDef])->List[str]:
+indent = "    "
+
+def generate_code(datas:List[DataDef])->Iterator[str]:
     # construct the typevar map
     # the idea: the typevar in ast map to an actual typevar name
     typevar_num = max(*map(lambda dd:len(dd.typeVars), datas))
-    typevars = typevar_list(typevar_num)
-    typevar_map = 
-    gen_aux(typevar_num) # add 1 for the return type of matching, e.g., foldr: (a -> b -> b) -> b -> [a] -> b
+    typevar_list = typevarList(typevar_num)
+    
+    gen_aux(typevar_list)
 
 
-def typevar_list(n:int)->List[str]:
+def typevarList(n:int)->List[str]:
     "Generate the list: _A,_B,_C..,_A1,_B1...,_A2,_B2,..."
-    it = map(lambda x:'_'+x,
-            chain(iter(upperCases),# chain: *Iterable[T] -> Iterable[T]
+    it = ('_'+x for x in
+            chain(# chain: *Iterable[T] -> Iterable[T]
+                upperCases,
                 chain.from_iterable(# from_iterable: Iterable[Iterable[T]]->Iterable[T]
                     #Iterable[Iterable[str]]
-                    map(lambda i:map(lambda x:x+str(i),upperCases),
+                    ((x+str(i) for x in upperCases) for i in
                         count(1)))
             )
         )
@@ -315,22 +318,43 @@ def ctorMatchSignature(retType:str,typevar_map:Dict[str,str])->Callable[[Ctor],s
                 )
     return f
 
-def gen_match_signature(typevars:Dict[str,str], dataDef:DataDef)->List[str]:
+def gen_match_signature(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
     "Generate the match method's def clause and type signature."
-    return ["def match(self,*,"]\
-           + list(map(lambda l:"          "+l, # indentation
-                      map(ctorMatchSignature('_T_',typevars), 
-                          dataDef.ctors)))\
-           + ["         )->_T_:"]
+    return chain(
+        ["def match(self,*,"],
+        ("          "+line for line in 
+            map(ctorMatchSignature('_T_',typevars), 
+                dataDef.ctors)),
+        ["         )->_T_:"]
+    )
     
-def gen_typedef():
+def gen_typedef(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
     "Generate the class for the type, e.g., List"
-    ...
+    ctors = dataDef.ctors
+    inherit_part = "(Generic[{}])".format(','.join([typevars[tn] for tn in dataDef.typeVars]))\
+                        if len(dataDef.typeVars) != 0 else ""
+    
+    #description
+    ctorNum = len(ctors)
+    if ctorNum==0:
+        description = "Cannot be constructed because there's no constructor defined."
+    elif ctorNum==1:
+        description = f"Can only be {ctors[0].ctorName}."
+    else:
+        description = "Can be either "\
+                      +','.join([c.ctorName for c in ctors[:-1]])\
+                      +f", or {ctors[-1].ctorName}."
+    return chain(
+        [f"class {dataDef.typeName}{inherit_part}:"],
+        [indent+f"\"{description}\""],
+        (indent+line for line in gen_match_signature(typevars,dataDef)),
+        [indent*2+"..."]
+    )
 def gen_ctors():
     "Generate the class for a constructor, e.g., Cons"
     ...
 
-def gen_one_DataDef():
+def gen_one_DataDef(typevars:Dict[str,str], dataDef: DataDef)->Iterator[str]:
     ...
 
 ###-----------------------
@@ -340,6 +364,6 @@ if __name__ == "__main__":
     #main()  
     toks = tokenize(example)
     datas = parseAST(toks)
-    print(gen_aux(3))
+    
     
     
