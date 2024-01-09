@@ -105,6 +105,7 @@ data Maybe[b] = Nothing
               | Just(_:b)
 """
 
+
 class TypeExpr:
     typeName:str
     args:List['TypeExpr']
@@ -112,19 +113,23 @@ class TypeExpr:
         self.typeName = typeName
         self.args = args
     def __str__(self) -> str:
-        return self.replacedStr({})
-    def replacedStr(self,replace_map:Dict[str,str])->str:
-        x = replace_map.get(self.typeName)
-        replaced = x if x else self.typeName
         if self.args:#len>0
-            return "{}[{}]".format(replaced, 
-                                   ','.join(map(lambda x:x.replacedStr(replace_map),
-                                                self.args)))
+            return "{}[{}]".format(self.typeName, 
+                                   ','.join(map(str,self.args)))
         else:
-            return replaced
+            return self.typeName
 
     def __repr__(self) -> str:
         return self.__str__()
+    
+    def subst_with_dict(self,typeVar_map:Dict[str,str])->None:
+        if self.args:#len>0
+            for te in self.args:
+                te.subst_with_dict(typeVar_map)
+        else:
+            x = typeVar_map.get(self.typeName)
+            if x:
+                self.typeName = x
 
 class CtorArg:
     fieldName:str
@@ -180,6 +185,17 @@ class DataDef:
                     )
     def __repr__(self) -> str:
         return self.__str__()
+    def subst_with_dict(self,typeVar_map:Dict[str,str])->None:
+        "Change the name of type variables according to the given table."
+        for i,tv in enumerate(self.typeVars):
+            x = typeVar_map.get(tv)
+            if x:
+                self.typeVars[i] = x
+        typeVars_in_ctors = (x.typ for x in 
+                                chain.from_iterable(ctor.args for ctor in self.ctors))
+        for tv in typeVars_in_ctors:
+            tv.subst_with_dict(typeVar_map)
+
 
 
 ###----------
@@ -299,31 +315,30 @@ def gen_aux(typevars:List[str])->List[str]:
              "_T_ = TypeVar('_T_')"
            ]
 
-def ctorMatchSignature(retType:str,typevar_map:Dict[str,str])->Callable[[Ctor],str]:
+def ctorMatchSignature(retType:str)->Callable[[Ctor],str]:
     "example: Cons ==> 'cons:Callable[[_T,Lst[_T]],Lst[_T]]'"
     def f(ctor:Ctor)->str:
         return "{}: Callable[[{}], {}],"\
                 .format(lowercase_head(ctor.ctorName),
-                        ','.join(map(lambda x:x.typ.replacedStr(typevar_map), 
-                                     ctor.args)),
+                        ','.join(str(arg.typ) for arg in ctor.args),
                         retType
                 )
     return f
 
-def gen_match_signature(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
+def gen_match_signature( dataDef:DataDef)->Iterator[str]:
     "Generate the match method's def clause and type signature."
     return chain(
         ["def match(self,*,"],
         ("          "+line for line in 
-            map(ctorMatchSignature('_T_',typevars), 
+            map(ctorMatchSignature('_T_'), 
                 dataDef.ctors)),
         ["         )->_T_:"]
     )
     
-def gen_typedef(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
+def gen_typedef(dataDef:DataDef)->Iterator[str]:
     "Generate the class for the type, e.g., List"
     ctors = dataDef.ctors
-    inherit_part = "(Generic[{}])".format(','.join([typevars[tn] for tn in dataDef.typeVars]))\
+    inherit_part = "(Generic[{}])".format(','.join(dataDef.typeVars))\
                         if dataDef.typeVars else ""
     
     #description
@@ -334,12 +349,13 @@ def gen_typedef(typevars:Dict[str,str], dataDef:DataDef)->Iterator[str]:
         description = f"Can only be {ctors[0].ctorName}."
     else:
         description = "Can be either "\
-                      +','.join([c.ctorName for c in ctors[:-1]])\
-                      +f", or {ctors[-1].ctorName}."
+                      + ','.join([c.ctorName for c in ctors[:-1]])\
+                      + "," if ctorNum>2 else ""\
+                      + f" or {ctors[-1].ctorName}."
     return chain(
         [f"class {dataDef.typeName}{inherit_part}:"],
         [indent+f"\"{description}\""],
-        (indent+line for line in gen_match_signature(typevars,dataDef)),
+        (indent+line for line in gen_match_signature(dataDef)),
         [indent*2+"..."]
     )
 def gen_one_ctor()->Iterator[str]:
@@ -349,7 +365,7 @@ def gen_one_ctor()->Iterator[str]:
     return chain(
         [f"class {dataDef.typeName}({inherit_part}):"]
     )
-def gen_ctors(typevars:Dict[str,str], dataDef: DataDef)->Iterator[str]:
+def gen_ctors(dataDef: DataDef)->Iterator[str]:
     """
     Generate the class for a constructor, e.g., Cons, including the checking 
     method, e.g., `def isCons(x:Lst[_A])->TypeGuard[Cons[_A]]`
