@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable, Iterator
 from functools import partial
-from itertools import chain,count
+from itertools import chain,count,repeat
 import sys
 import io
 import re
 import parsy
 
 from string import ascii_uppercase
-upperCases : list[str] = [c for c in ascii_uppercase]
+_upperCases : list[str] = [c for c in ascii_uppercase]
+indent = "    "
 
 # 
 # Run this script with an argument of a filepath, 
@@ -122,7 +123,12 @@ class TypeExpr:
     def __repr__(self) -> str:
         return self.__str__()
     
-    def subst_with_dict(self,typeVar_map:Dict[str,str])->None:
+    @classmethod
+    def from_mere_typevars(cls,typename:str, tvs:List[str])->'TypeExpr':
+        return TypeExpr(typename,[TypeExpr(tv,[]) for tv in tvs])
+    
+    def subst_with_dict(self,typeVar_map:Dict[str,str])->'TypeExpr':
+        "This method MUTATES the fields."
         if self.args:#len>0
             for te in self.args:
                 te.subst_with_dict(typeVar_map)
@@ -130,6 +136,10 @@ class TypeExpr:
             x = typeVar_map.get(self.typeName)
             if x:
                 self.typeName = x
+        return self
+    
+    def copy(self)->'TypeExpr':
+        return TypeExpr(self.typeName,[te.copy() for te in self.args])
     
     def extract_typevars(self)->Iterator[str]:
         """
@@ -292,7 +302,7 @@ def parseAST(stream:List[str])->List[DataDef]:
 
 ###--------------- Code Generation ---------------------
 
-indent = "    "
+
 
 def generate_code(datas:List[DataDef])->Iterator[str]:
     # construct the typevar map
@@ -307,10 +317,10 @@ def typevarList(n:int)->List[str]:
     "Generate the list: _A,_B,_C..,_A1,_B1...,_A2,_B2,..."
     it = ('_'+x for x in
             chain(# chain: *Iterable[T] -> Iterable[T]
-                upperCases,
+                _upperCases,
                 chain.from_iterable(# from_iterable: Iterable[Iterable[T]]->Iterable[T]
                     #Iterable[Iterable[str]]
-                    ((x+str(i) for x in upperCases) for i in
+                    ((x+str(i) for x in _upperCases) for i in
                         count(1)))
             )
         )
@@ -330,12 +340,23 @@ def gen_aux(typevars:List[str])->List[str]:
              "_T_ = TypeVar('_T_')"
            ]
 
-def ctorMatchSignature(retType:str)->Callable[[Ctor],str]:
+def wrap_recursive_type(t:TypeExpr, rt:str)->str:
+    """
+    If t is the same as the type we're defining, wrap a pair of `\'` around it.
+    For example, when defining the class `Lst`, all the occurrences of `Lst`
+    should be wrapped like `'Lst[int]'`, `'Lst[Lst[Any]]'`.
+    """
+    if t.typeName==rt:
+        return f"'{str(t)}'"
+    else:
+        return str(t)
+def ctorMatchSignature(retType:str, rectype:str)->Callable[[Ctor],str]:
     "example: Cons ==> 'cons:Callable[[_T,Lst[_T]],Lst[_T]]'"
     def f(ctor:Ctor)->str:
         return "{}: Callable[[{}], {}],"\
                 .format(lowercase_head(ctor.ctorName),
-                        ','.join(str(arg.typ) for arg in ctor.args),
+                        ','.join(wrap_recursive_type(arg.typ, rectype) 
+                                    for arg in ctor.args),
                         retType
                 )
     return f
@@ -345,7 +366,7 @@ def gen_match_signature( dataDef:DataDef)->Iterator[str]:
     return chain(
         ["def match(self,*,"],
         ("          "+line for line in 
-            map(ctorMatchSignature('_T_'), 
+            map(ctorMatchSignature('_T_', dataDef.typeName), 
                 dataDef.ctors)),
         ["         )->_T_:"]
     )
@@ -375,11 +396,34 @@ def gen_typedef(dataDef:DataDef)->Iterator[str]:
     )
 
 def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
-    inherit_part =""
-    argtyps: list[tuple[str,TypeExpr]] = [(arg.fieldName, arg.typ) for arg in ctor.args]
+    typeName: str = dataDef.typeName
+    def_typevars: List[str] = dataDef.typeVars
+    ctor_typevars: set[str] = ctor.extract_typevars()
+    def_type: TypeExpr = TypeExpr.from_mere_typevars(typeName, def_typevars)
+    
+    # constructing inherit_part
+    if ctor.args:
+        inherit_part = \
+            "Generic[{}],{}".format(
+                ','.join(ctor_typevars),
+                str(def_type.copy().subst_with_dict(
+                    dict(zip(set(def_typevars)-ctor_typevars,
+                             repeat('Any')))))
+            )
+    else:
+        # If the Ctor has no typevar, the typevar positions of the inherited type 
+        # should be all Any
+        # e.g., in the `Lst` example, the inheritance of `Nil` should be `(Lst[Any])`
+        inherit_part = \
+            str(def_type.copy().subst_with_dict(
+                dict(zip(def_typevars,
+                         repeat('Any')))))
+    
+    argtypes: list[tuple[str,TypeExpr]] = [(arg.fieldName, arg.typ) for arg in ctor.args]
+    
     return chain(
         #class declaration
-        [f"class {dataDef.typeName}({inherit_part}):"],
+        [f"class {typeName}({inherit_part}):"],
         #field declaration
         #__init__
         #match signature
