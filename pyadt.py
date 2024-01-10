@@ -130,6 +130,18 @@ class TypeExpr:
             x = typeVar_map.get(self.typeName)
             if x:
                 self.typeName = x
+    
+    def extract_typevars(self)->Iterator[str]:
+        """
+        Return all TypeExprs that is kind * in terms of Haskell.
+        (for example, the 'list' in 'list[a]' is kind (*->*), and 'a' is kind *)
+        """
+        if self.args:
+            return chain.from_iterable(
+                arg.extract_typevars() for arg in self.args)
+        else:
+            return iter([self.typeName])
+
 
 class CtorArg:
     fieldName:str
@@ -162,6 +174,9 @@ class Ctor:
         )
     def __repr__(self) -> str:
         return self.__str__()
+    def extract_typevars(self)->set[str]:
+        return set(chain.from_iterable(
+            arg.typ.extract_typevars() for arg in self.args))
     
 
 
@@ -259,7 +274,7 @@ def ctorP():
         yield optParenList('()', 
                 parsy.seq((loIdentifier << token(':')),
                             typeExprP
-                ).combine(CtorArg).sep_by(token(',')))
+                ).combine(CtorArg))
     return Ctor(ctor,params if params else [])
 
 def combine_DataDef(dataname:Tuple[str,List[str]],ctors:List[Ctor])->DataDef:
@@ -358,12 +373,18 @@ def gen_typedef(dataDef:DataDef)->Iterator[str]:
         (indent+line for line in gen_match_signature(dataDef)),
         [indent*2+"..."]
     )
-def gen_one_ctor()->Iterator[str]:
-    thetype = 
+
+def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
     inherit_part =""
-    fields=""
+    argtyps: list[tuple[str,TypeExpr]] = [(arg.fieldName, arg.typ) for arg in ctor.args]
     return chain(
-        [f"class {dataDef.typeName}({inherit_part}):"]
+        #class declaration
+        [f"class {dataDef.typeName}({inherit_part}):"],
+        #field declaration
+        #__init__
+        #match signature
+        #match body
+        #isCtor test function
     )
 def gen_ctors(dataDef: DataDef)->Iterator[str]:
     """
@@ -382,6 +403,11 @@ if __name__ == "__main__":
     #main()  
     toks = tokenize(example)
     datas = parseAST(toks)
-    
+    # ic(datas)
+    # for dd in datas:
+    #     print("dd.typeName:")
+    #     dd.subst_with_dict({'a':'_A'})
+    #     for ctor in dd.ctors:
+    #         print(ctor.ctorName+": "+ str(ctor.extract_typevars()))
     
     
