@@ -61,7 +61,7 @@ indent = "    "
 # def isNil(x:Lst[Any])->TypeGuard[Nil]:
 #     return type(x) is Nil
 
-
+#TODO: add runtime type check
 
 def main():
     print('success')
@@ -163,6 +163,8 @@ class CtorArg:
         return self.fieldName+":"+str(self.typ)
     def __repr__(self) -> str:
         return self.__str__()
+    def copy(self)->'CtorArg':
+        return CtorArg(self.fieldName, self.typ.copy())
 
 def lowercase_head(name:str)->str:
     return name[0].lower()+name[1:]
@@ -187,6 +189,8 @@ class Ctor:
     def extract_typevars(self)->set[str]:
         return set(chain.from_iterable(
             arg.typ.extract_typevars() for arg in self.args))
+    def copy(self)->'Ctor':
+        return Ctor(self.ctorName, [ctarg.copy() for ctarg in self.args])
     
 
 
@@ -210,7 +214,8 @@ class DataDef:
                     )
     def __repr__(self) -> str:
         return self.__str__()
-    def subst_with_dict(self,typeVar_map:Dict[str,str])->None:
+    
+    def subst_with_dict(self,typeVar_map:Dict[str,str])->'DataDef':
         "Change the name of type variables according to the given table."
         for i,tv in enumerate(self.typeVars):
             x = typeVar_map.get(tv)
@@ -220,6 +225,10 @@ class DataDef:
                                 chain.from_iterable(ctor.args for ctor in self.ctors))
         for tv in typeVars_in_ctors:
             tv.subst_with_dict(typeVar_map)
+        return self
+    
+    def copy(self)->'DataDef':
+        return DataDef(self.typeName, self.typeVars.copy(), [ctor.copy() for ctor in self.ctors])
 
 
 
@@ -310,7 +319,15 @@ def generate_code(datas:List[DataDef])->Iterator[str]:
     typevar_num = max(*map(lambda dd:len(dd.typeVars), datas))
     typevar_list = typevarList(typevar_num)
     
-    gen_aux(typevar_list)
+    subst_datas = [data.copy().subst_with_dict(typevarMap(typevar_list, data)) 
+                   for data in datas]
+    
+    return chain(
+        gen_aux(typevar_list),
+        chain.from_iterable(
+            gen_one_DataDef(data) for data in subst_datas)
+    )
+
 
 
 def typevarList(n:int)->List[str]:
@@ -386,18 +403,23 @@ def gen_typedef(dataDef:DataDef)->Iterator[str]:
     else:
         description = "Can be either "\
                       + ','.join([c.ctorName for c in ctors[:-1]])\
-                      + "," if ctorNum>2 else ""\
+                      + ("," if ctorNum>2 else "")\
                       + f" or {ctors[-1].ctorName}."
     return chain(
         [f"class {dataDef.typeName}{inherit_part}:"],
         [indent+f"\"{description}\""],
         (indent+line for line in gen_match_signature(dataDef)),
-        [indent*2+"..."]
+        [indent*2+"..."],
+        #an empty line
+        [""]
     )
 
 def replaceWithAny(patterns:List[str],input:str)->str:
     "Replace the occurence of patterns in `input` to 'Any'."
-    return 'Any'.join(re.split('|'.join(patterns),input))
+    if patterns:
+        return 'Any'.join(re.split('|'.join(patterns),input))
+    else:
+        return input
 
 def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
     typeName: str = dataDef.typeName
@@ -421,26 +443,38 @@ def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
         # e.g., in the `Lst` example, the inheritance of `Nil` should be `(Lst[Any])`
         inherit_part = replaceWithAny(def_typevars, def_type_str)
     
-    argtype_pairs: list[tuple[str,str]] = [(arg.fieldName, str(arg.typ)) for arg in ctor.args]
-    fields: list[str] = [arg.fieldName for arg in ctor.args]
+    # dealing with '_' field
+    inf_fields = (f'_f{i}' for i in count(1))
+    argtype_pairs: list[tuple[str,str]] = [((arg.fieldName if arg.fieldName!='_' else next(inf_fields))
+                                           ,str(arg.typ))
+                                           for arg in ctor.args]
+    fields: list[str] = [p[0] for p in argtype_pairs]
     
+    #initBlock
+    if fields:#len(fields)>0
+        initBlock = chain(\
+            [indent+"def __init__(self,{}):"\
+            .format(', '.join(("{}:{}".format(field,argtyp)
+                                for (field,argtyp) in argtype_pairs)))],
+            (indent*2+"self.{field} = {field}".format(field = field)
+            for field in fields),
+        )
+    else:
+        initBlock = []
+
     return chain(
         #class declaration
-        [f"class {typeName}({inherit_part}):"],
+        [f"class {ctorName}({inherit_part}):"],
         
         #field declaration
         (indent+"{}: {}".format(field,argtyp)
             for (field,argtyp) in argtype_pairs),
         
         #__init__
-        [indent+"def __init__(self,{}):"\
-         .format(','.join((indent+"{}: {}".format(field,argtyp)
-                            for (field,argtyp) in argtype_pairs)))],
-        (indent*2+"self.{field} = {field}".format(field = field)
-         for field in fields),
+        initBlock,
 
         #match signature
-        gen_match_signature(dataDef),
+        (indent+line for line in gen_match_signature(dataDef)),
 
         #match body
         [indent*2+"return {}({})"\
@@ -452,32 +486,41 @@ def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
             ctorName,
             generic_def_type_str,
             "{}[{}]".format(ctorName, ','.join(ctor_typevars)) 
-                if ctor.args else ctorName 
-        )],
-        [indent+"return type(x) is "+ctorName]
-    )
-def gen_ctors(dataDef: DataDef)->Iterator[str]:
-    """
-    Generate the class for a constructor, e.g., Cons, including the checking 
-    method, e.g., `def isCons(x:Lst[_A])->TypeGuard[Cons[_A]]`
-    """
-    
+                if ctor.args else ctorName
+         ),
+         indent+"return type(x) is "+ctorName,
+        ],
 
-def gen_one_DataDef(typevars:Dict[str,str], dataDef: DataDef)->Iterator[str]:
-    ...
+        #an empty line
+        [""]
+    )
+
+
+def gen_one_DataDef(dataDef: DataDef)->Iterator[str]:
+    return chain(
+        # type def
+        gen_typedef(dataDef),
+        # Constructors
+        chain.from_iterable(
+            gen_one_ctor(dataDef,ctor) for ctor in dataDef.ctors),
+        # an empty line
+        [""]
+    )
 
 ###-----------------------
-        
+
+def take(n:int, x:Iterable)->List:
+    it = iter(x)
+    return [next(it) for _ in range(n)]
+
 from icecream import ic
 if __name__ == "__main__":
     #main()  
     toks = tokenize(example)
     datas = parseAST(toks)
-    # ic(datas)
-    # for dd in datas:
-    #     print("dd.typeName:")
-    #     dd.subst_with_dict({'a':'_A'})
-    #     for ctor in dd.ctors:
-    #         print(ctor.ctorName+": "+ str(ctor.extract_typevars()))
+    code = list(generate_code(datas))
+    for line in code:
+        print(line)
+        
     
     
