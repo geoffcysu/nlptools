@@ -395,40 +395,66 @@ def gen_typedef(dataDef:DataDef)->Iterator[str]:
         [indent*2+"..."]
     )
 
+def replaceWithAny(patterns:List[str],input:str)->str:
+    "Replace the occurence of patterns in `input` to 'Any'."
+    return 'Any'.join(re.split('|'.join(patterns),input))
+
 def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
     typeName: str = dataDef.typeName
+    ctorName: str = ctor.ctorName
     def_typevars: List[str] = dataDef.typeVars
     ctor_typevars: set[str] = ctor.extract_typevars()
-    def_type: TypeExpr = TypeExpr.from_mere_typevars(typeName, def_typevars)
+    def_type_str = "{}[{}]".format(typeName,','.join(def_typevars))
+    generic_def_type_str = replaceWithAny(list(set(def_typevars)-ctor_typevars), 
+                                          def_type_str)
     
     # constructing inherit_part
     if ctor.args:
         inherit_part = \
             "Generic[{}],{}".format(
                 ','.join(ctor_typevars),
-                str(def_type.copy().subst_with_dict(
-                    dict(zip(set(def_typevars)-ctor_typevars,
-                             repeat('Any')))))
+                generic_def_type_str
             )
     else:
         # If the Ctor has no typevar, the typevar positions of the inherited type 
         # should be all Any
         # e.g., in the `Lst` example, the inheritance of `Nil` should be `(Lst[Any])`
-        inherit_part = \
-            str(def_type.copy().subst_with_dict(
-                dict(zip(def_typevars,
-                         repeat('Any')))))
+        inherit_part = replaceWithAny(def_typevars, def_type_str)
     
-    argtypes: list[tuple[str,TypeExpr]] = [(arg.fieldName, arg.typ) for arg in ctor.args]
+    argtype_pairs: list[tuple[str,str]] = [(arg.fieldName, str(arg.typ)) for arg in ctor.args]
+    fields: list[str] = [arg.fieldName for arg in ctor.args]
     
     return chain(
         #class declaration
         [f"class {typeName}({inherit_part}):"],
+        
         #field declaration
+        (indent+"{}: {}".format(field,argtyp)
+            for (field,argtyp) in argtype_pairs),
+        
         #__init__
+        [indent+"def __init__(self,{}):"\
+         .format(','.join((indent+"{}: {}".format(field,argtyp)
+                            for (field,argtyp) in argtype_pairs)))],
+        (indent*2+"self.{field} = {field}".format(field = field)
+         for field in fields),
+
         #match signature
+        gen_match_signature(dataDef),
+
         #match body
+        [indent*2+"return {}({})"\
+         .format(lowercase_head(ctorName),
+                 ','.join(f"self.{field}" for field in fields))],
+        
         #isCtor test function
+        ["def is{}(x:{})->TypeGuard[{}]:".format(
+            ctorName,
+            generic_def_type_str,
+            "{}[{}]".format(ctorName, ','.join(ctor_typevars)) 
+                if ctor.args else ctorName 
+        )],
+        [indent+"return type(x) is "+ctorName]
     )
 def gen_ctors(dataDef: DataDef)->Iterator[str]:
     """
