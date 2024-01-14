@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable, Iterator
+from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable, Iterator, Sequence
 from functools import partial
 from itertools import chain,count,repeat
+from dataclasses import dataclass
 import sys
 import io
 import re
 import parsy
 
 from string import ascii_uppercase
+_A = TypeVar('_A')
 _upperCases : list[str] = [c for c in ascii_uppercase]
 indent = "    "
 
@@ -38,11 +40,10 @@ indent = "    "
 
 # class Nil(Lst[Any]):
 #     def match(self,*,
-#               nil:_T_,
+#               nil:Callable[[],_T_],
 #               cons:Callable[[_A,'Lst[_A]'],_T_]
 #               )->_T_:
-#         return nil
-# nil = Nil()
+#         return nil()
 
 # class Cons(Generic[_A],Lst[_A]):
 #     data:_A
@@ -64,7 +65,7 @@ indent = "    "
 #TODO: add runtime type check
 
 def main():
-    print('success')
+    process_the_file('testing.txt')
     # if len(sys.argv) != 2:
     #     print("Usage: python script.py <filename>")
     #     sys.exit(1)
@@ -76,17 +77,21 @@ def main():
 
 
 
-
+from pprint import pprint
 def process_the_file(filename):
     try:
         with open(filename, 'r') as file:
-            content = file.read()
-
+            content_lines = file.readlines()
+        
+        """
+        splitting the contents to: ...{adt decl}{maybe previously generated code}...
+        """
+        res = fileP.parse(content_lines)
+        pprint(res)
+        
 
     except FileNotFoundError:
         print(f"Error: The file '{filename}' was not found.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
 
     
 def process_the_adt_block(input:str)->List[str]:
@@ -95,6 +100,56 @@ def process_the_adt_block(input:str)->List[str]:
     """
     toks = tokenize(input)
     dataDefs = parseAST(toks)
+
+
+###--------------- processing procedure ---------------------
+
+itemP = parsy.test_item
+
+adt_declP = itemP(lambda line: bool(re.fullmatch(r'("""|\'\'\')\s*adt\s*:\s*',line))
+                 ,"adt declaration")
+multi_line_strP = itemP(lambda line:bool(re.fullmatch(r'("""|\'\'\').*\s*',line))
+                       , "multi-line string")
+
+# Parser[list[str]]
+adt_declblockP = \
+    adt_declP\
+    >> parsy.any_char.until(multi_line_strP)\
+    << multi_line_strP
+
+start_of_codeblockP = \
+    itemP(lambda line:bool(re.fullmatch(
+            r'# The code below is generated according to the definition above; hash=.*\s*'
+            ,line))
+         , "generated code block")
+end_of_codeblockP = itemP(lambda line:bool(re.fullmatch(r'# End of generated code\..*\s*'
+                                                       ,line))
+                         , "end of generated code block")
+# Parser[list[str]]
+code_blockP = \
+    start_of_codeblockP\
+    >> parsy.any_char.until(end_of_codeblockP)\
+    << end_of_codeblockP
+
+# Parser[list[str]]
+maybe_code_blockP = parsy.peek(start_of_codeblockP).optional().bind(
+    lambda codeblock: code_blockP if codeblock else parsy.success([]))
+
+@dataclass
+class FullAdtBlock:
+    pre:List[str]
+    adtdecl:List[str]
+    code:List[str]
+
+# Parser[tuple[list[FullAdtBlock], list[str]]]
+fileP = parsy.seq(
+    parsy.seq(
+        parsy.any_char.until(adt_declP),
+        adt_declblockP,
+        maybe_code_blockP,
+        ).combine(FullAdtBlock).many()
+    , parsy.any_char.many()
+    )
 
 
 ###------------------- AST --------------------------
@@ -515,12 +570,12 @@ def take(n:int, x:Iterable)->List:
 
 from icecream import ic
 if __name__ == "__main__":
-    #main()  
-    toks = tokenize(example)
-    datas = parseAST(toks)
-    code = list(generate_code(datas))
-    for line in code:
-        print(line)
-        
+    main()  
+    # toks = tokenize(example)
+    # datas = parseAST(toks)
+    # print(hash(datas[1]))
+    # code_lines = generate_code(datas)
+    
+
     
     
