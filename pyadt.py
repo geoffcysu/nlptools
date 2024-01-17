@@ -24,10 +24,10 @@ indent = "    "
 # """ adt:
 #
 # data Lst a = Nil
-#         | Cons a (Lst a)
+#            | Cons a (Lst a)
 #
 # """
-# 
+# # The code below is generated according to the definition above; hash=...
 # _A = TypeVar('_A')
 # _T_ = TypeVar('_T_')
 # class Lst(Generic[_A]):
@@ -44,7 +44,9 @@ indent = "    "
 #               cons:Callable[[_A,'Lst[_A]'],_T_]
 #               )->_T_:
 #         return nil()
-
+# def isNil(x:Lst[Any])->TypeGuard[Nil]:
+#     return type(x) is Nil
+#
 # class Cons(Generic[_A],Lst[_A]):
 #     data:_A
 #     tail:Lst[_A]
@@ -56,11 +58,10 @@ indent = "    "
 #               cons:Callable[[_A,'Lst[_A]'],_T_]
 #               )->_T_:
 #         return cons(self.data,self.tail)
-
 # def isCons(x:Lst[_A])->TypeGuard[Cons[_A]]:
 #     return type(x) is Cons
-# def isNil(x:Lst[Any])->TypeGuard[Nil]:
-#     return type(x) is Nil
+#
+# # End of generated code
 
 #TODO: add runtime type check
 
@@ -78,6 +79,7 @@ def main():
 
 
 from pprint import pprint
+from icecream import ic
 def process_the_file(filename):
     try:
         with open(filename, 'r') as file:
@@ -86,23 +88,16 @@ def process_the_file(filename):
         """
         splitting the contents to: ...{adt decl}{maybe previously generated code}...
         """
-        res = fileP.parse(content_lines)
-        pprint(res)
+        adtblocks,postlines = fileP.parse(content_lines)
+        
+        
         
 
     except FileNotFoundError:
         print(f"Error: The file '{filename}' was not found.")
 
-    
-def process_the_adt_block(input:str)->List[str]:
-    """
-    
-    """
-    toks = tokenize(input)
-    dataDefs = parseAST(toks)
 
-
-###--------------- processing procedure ---------------------
+###--------------- file processing parsers ---------------------
 
 itemP = parsy.test_item
 
@@ -117,29 +112,43 @@ adt_declblockP = \
     >> parsy.any_char.until(multi_line_strP)\
     << multi_line_strP
 
+#Parser[Hash]  
 start_of_codeblockP = \
     itemP(lambda line:bool(re.fullmatch(
-            r'# The code below is generated according to the definition above; hash=.*\s*'
+            r'# The code below is generated according to the definition above; hash=.+\s*'
             ,line))
-         , "generated code block")
+         , "generated code block").map(lambda line:re.findall(r'hash=(.+)\s*',line)[0])
 end_of_codeblockP = itemP(lambda line:bool(re.fullmatch(r'# End of generated code\..*\s*'
                                                        ,line))
                          , "end of generated code block")
-# Parser[list[str]]
-code_blockP = \
-    start_of_codeblockP\
-    >> parsy.any_char.until(end_of_codeblockP)\
+# Parser[tuple[str,list[str]]]
+code_blockP = parsy.seq(
+    start_of_codeblockP,
+    parsy.any_char.until(end_of_codeblockP)
+    )\
     << end_of_codeblockP
 
-# Parser[list[str]]
+# Parser[Optional[tuple[str,list[str]]]]
 maybe_code_blockP = parsy.peek(start_of_codeblockP).optional().bind(
-    lambda codeblock: code_blockP if codeblock else parsy.success([]))
+    lambda codeblock: code_blockP if codeblock else parsy.success(None))
 
-@dataclass
 class FullAdtBlock:
-    pre:List[str]
+    pre:List[str] #the text before the adt block
     adtdecl:List[str]
+    hash:Optional[str]
     code:List[str]
+    def __init__(self
+                ,pre:List[str]
+                ,adtdecl:List[str]
+                ,m_code_block:Optional[tuple[str,List[str]]]):
+        self.pre = pre
+        self.adtdecl = adtdecl
+        if m_code_block:
+            self.hash = m_code_block[0]
+            self.code = m_code_block[1]
+        else:
+            self.hash = None
+            self.code = []
 
 # Parser[tuple[list[FullAdtBlock], list[str]]]
 fileP = parsy.seq(
@@ -568,7 +577,7 @@ def take(n:int, x:Iterable)->List:
     it = iter(x)
     return [next(it) for _ in range(n)]
 
-from icecream import ic
+
 if __name__ == "__main__":
     main()  
     # toks = tokenize(example)
