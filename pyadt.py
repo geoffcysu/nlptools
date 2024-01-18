@@ -1,8 +1,12 @@
 #!/usr/bin/env python
+
+# Version 0.1
+
 from typing import Generic, TypeVar, Tuple, List, Literal, Optional, Dict, Iterable, Callable, Iterator, Sequence
 from functools import partial
 from itertools import chain,count,repeat
 from dataclasses import dataclass
+import hashlib
 import sys
 import io
 import re
@@ -88,7 +92,20 @@ def process_the_file(filename):
         """
         splitting the contents to: ...{adt decl}{maybe previously generated code}...
         """
-        adtblocks,postlines = fileP.parse(content_lines)
+        _1,_2 = fileP.parse(content_lines)
+        adtblocks:List[AdtDeclBlock] = _1
+        postlines:List[str] = _2
+
+        #fix: do the parsing and generation before writing the file
+        #fix: recover the adt declaration lines
+
+        processedAdts = list(map(ProcessedAdtBlock.fromAdtDecl, adtblocks))
+
+        with open("testoutput.txt", 'w') as file:
+            for proccessedAdt in processedAdts:
+                file.writelines(proccessedAdt.generate_code())
+            file.writelines(postlines)
+                    
         
         
         
@@ -97,72 +114,8 @@ def process_the_file(filename):
         print(f"Error: The file '{filename}' was not found.")
 
 
-###--------------- file processing parsers ---------------------
-
-itemP = parsy.test_item
-
-adt_declP = itemP(lambda line: bool(re.fullmatch(r'("""|\'\'\')\s*adt\s*:\s*',line))
-                 ,"adt declaration")
-multi_line_strP = itemP(lambda line:bool(re.fullmatch(r'("""|\'\'\').*\s*',line))
-                       , "multi-line string")
-
-# Parser[list[str]]
-adt_declblockP = \
-    adt_declP\
-    >> parsy.any_char.until(multi_line_strP)\
-    << multi_line_strP
-
-#Parser[Hash]  
-start_of_codeblockP = \
-    itemP(lambda line:bool(re.fullmatch(
-            r'# The code below is generated according to the definition above; hash=.+\s*'
-            ,line))
-         , "generated code block").map(lambda line:re.findall(r'hash=(.+)\s*',line)[0])
-end_of_codeblockP = itemP(lambda line:bool(re.fullmatch(r'# End of generated code\..*\s*'
-                                                       ,line))
-                         , "end of generated code block")
-# Parser[tuple[str,list[str]]]
-code_blockP = parsy.seq(
-    start_of_codeblockP,
-    parsy.any_char.until(end_of_codeblockP)
-    )\
-    << end_of_codeblockP
-
-# Parser[Optional[tuple[str,list[str]]]]
-maybe_code_blockP = parsy.peek(start_of_codeblockP).optional().bind(
-    lambda codeblock: code_blockP if codeblock else parsy.success(None))
-
-class FullAdtBlock:
-    pre:List[str] #the text before the adt block
-    adtdecl:List[str]
-    hash:Optional[str]
-    code:List[str]
-    def __init__(self
-                ,pre:List[str]
-                ,adtdecl:List[str]
-                ,m_code_block:Optional[tuple[str,List[str]]]):
-        self.pre = pre
-        self.adtdecl = adtdecl
-        if m_code_block:
-            self.hash = m_code_block[0]
-            self.code = m_code_block[1]
-        else:
-            self.hash = None
-            self.code = []
-
-# Parser[tuple[list[FullAdtBlock], list[str]]]
-fileP = parsy.seq(
-    parsy.seq(
-        parsy.any_char.until(adt_declP),
-        adt_declblockP,
-        maybe_code_blockP,
-        ).combine(FullAdtBlock).many()
-    , parsy.any_char.many()
-    )
 
 
-###------------------- AST --------------------------
-    
 example="""
 data Lst[a] = Nil
             | Cons(_:a, tail:Lst[a])
@@ -170,6 +123,14 @@ data Maybe[b] = Nothing
               | Just(_:b)
 """
 
+def interleave(x:_A,it:Iterator[_A])->Iterator[_A]:
+    return chain.from_iterable(zip(it,repeat(x)))
+
+#----------------------------------------------------------------
+#--------------------------- I. AST -----------------------------
+#----------------------------------------------------------------
+# AST data types for adt declaration
+    
 
 class TypeExpr:
     typeName:str
@@ -296,10 +257,20 @@ class DataDef:
 
 
 
-###----------
-tokenize = lambda input:re.findall(r'data|[a-zA-Z_][\w]*|=|\||\(|\)|:|,|\[|\]',input)
 
-###---------------- Parsers ----------------
+#----------------------------------------------------------------
+#-------------- II. Parsers of adt decl block -------------------
+#----------------------------------------------------------------
+#ENTRY: parseAST
+
+tokenize = lambda input:re.findall(r'data|[a-zA-Z_][\w]*|=|\||\(|\)|:|,|\[|\]',input)
+###----------
+
+#stream is List[token]
+def parseAST(src: str)->List[DataDef]:
+    stream = tokenize(src)
+    return parseDataDef.many().parse(stream)
+
 
 identifier = parsy.test_item(str.isidentifier,'identifier')
 upIdentifier = parsy.test_item(lambda x:str.isidentifier(x) and 
@@ -369,15 +340,16 @@ parseDataDef = parsy.seq(
     ctors =    ctorP.sep_by(token('|'),min=1)
 ).combine_dict(combine_DataDef)
 
-def parseAST(stream:List[str])->List[DataDef]:
-    return parseDataDef.many().parse(stream)
-
-
-###--------------- Code Generation ---------------------
 
 
 
-def generate_code(datas:List[DataDef])->Iterator[str]:
+#----------------------------------------------------------------
+#------------------- III. Code generation -----------------------
+#----------------------------------------------------------------
+# ENTRY: generate_code
+
+
+def generate_code_of_datadefs(datas:List[DataDef])->Iterator[str]:
     # construct the typevar map
     # the idea: the typevar in ast map to an actual typevar name
     typevar_num = max(*map(lambda dd:len(dd.typeVars), datas))
@@ -570,6 +542,121 @@ def gen_one_DataDef(dataDef: DataDef)->Iterator[str]:
         # an empty line
         [""]
     )
+
+#----------------------------------------------------------------
+#--------------- IV. File processing procedures -----------------
+#----------------------------------------------------------------
+# ENTRY: fileP : Parser[tuple[list[AdtDeclBlock], list[str]]]
+
+
+class AdtDeclBlock:
+    pre:List[str] #the text before the adt block
+    adtdecl:List[str] #including the first and last line of `"""`
+    hash:Optional[str]
+    code:List[str]
+    def __init__(self
+                ,pre:List[str]
+                ,adtdecl:List[str]
+                ,m_code_block:Optional[tuple[str,List[str]]]):
+        self.pre = pre
+        self.adtdecl = adtdecl
+        if m_code_block:
+            self.hash = m_code_block[0]
+            self.code = m_code_block[1]
+        else:
+            self.hash = None
+            self.code = []
+
+class ProcessedAdtBlock(AdtDeclBlock):
+    dataDefs:List[DataDef]
+
+    def __init__(self,declblock:AdtDeclBlock, dataDefs:List[DataDef]):
+        super().__init__(
+            declblock.pre,
+            declblock.adtdecl,
+            (declblock.hash,declblock.code) if declblock.hash else None
+            )
+        self.dataDefs = dataDefs
+
+    @classmethod
+    def fromAdtDecl(cls,declblock:AdtDeclBlock)->'ProcessedAdtBlock':
+        # Need to handle parsing errors.
+        dataDefs = parseAST(''.join(declblock.adtdecl[1:-1]))
+        return ProcessedAdtBlock(declblock, dataDefs)
+
+    def generate_code(self)->Iterator[str]:
+        hashOfBlock = hashlib.sha256(str(self.dataDefs).encode()).hexdigest()[:10]
+        if self.hash and hashOfBlock!=self.hash:
+            print("Warning: hash doesn't match, the old generated code will be replaced.")
+            genCode = True
+        elif self.hash == hashOfBlock:
+            genCode = False
+        else:
+            genCode = True
+        
+        code_part:Iterator[str] = chain(
+            [f"# The code below is generated according to the definition above; hash={hashOfBlock}\n\n"],
+            interleave('\n',generate_code_of_datadefs(self.dataDefs)),
+            ["# End of generated code.\n"]
+        ) if genCode else chain(
+            [f"# The code below is generated according to the definition above; hash={self.hash}\n"],
+            self.code,
+            ["# End of generated code.\n"]
+        )
+
+        return chain(
+            self.pre,
+            self.adtdecl,
+            code_part
+        )
+
+itemP = parsy.test_item
+
+adt_declP = itemP(lambda line: bool(re.fullmatch(r'("""|\'\'\')\s*adt\s*:\s*',line))
+                 ,"adt declaration")
+multi_line_strP = itemP(lambda line:bool(re.fullmatch(r'("""|\'\'\').*\s*',line))
+                       , "multi-line string")
+
+# Parser[list[str]]
+adt_declblockP = \
+    adt_declP.map(lambda x:[x])\
+    + parsy.any_char.until(multi_line_strP)\
+    + multi_line_strP.map(lambda x:[x])
+
+#Parser[Hash]  
+start_of_codeblockP = \
+    itemP(lambda line:bool(re.fullmatch(
+            r'# The code below is generated according to the definition above; hash=.+\s*'
+            ,line))
+         , "generated code block").map(lambda line:re.findall(r'hash=(.+)\s*',line)[0])
+end_of_codeblockP = itemP(lambda line:bool(re.fullmatch(r'# End of generated code\..*\s*'
+                                                       ,line))
+                         , "end of generated code block")
+# Parser[tuple[str,list[str]]]
+code_blockP = parsy.seq(
+    start_of_codeblockP,
+    parsy.any_char.until(end_of_codeblockP)
+    )\
+    << end_of_codeblockP
+
+# Parser[Optional[tuple[str,list[str]]]]
+maybe_code_blockP = parsy.peek(start_of_codeblockP).optional().bind(
+    lambda codeblock: code_blockP if codeblock else parsy.success(None))
+
+
+
+# Parser[tuple[list[AdtDeclBlock], list[str]]]
+fileP = parsy.seq(
+    parsy.seq(
+        parsy.any_char.until(adt_declP),
+        adt_declblockP,
+        maybe_code_blockP,
+        ).combine(AdtDeclBlock).many()
+    , parsy.any_char.many()
+    )
+
+
+
 
 ###-----------------------
 
