@@ -32,7 +32,34 @@ S -> ENTITY_pronoun DP
 text2 = "<ENTITY_pronoun>她</ENTITY_pronoun><FUNC_degreeHead>很</FUNC_degreeHead><MODIFIER>開心</MODIFIER>"
 parserDict = parserOfRules(rule2)
 tree = parserDict.ruleParser['S'].parse(text2)
-tree.pprint()
+
+PSR = """
+S -> (NP|S') (Aux)? VP
+NP -> (pronoun|(Det)? (AP)? N (PP)? (S')?)
+VP -> (AdvP)? V (AP|NP(NP|PP|S')?)? (XP)*
+AP -> (deg)? A (PP|S')?
+PP -> P (NP)?
+Det -> (Art|Dem|NP-poss)
+X -> S ((Conj)? X)? Conj X
+S' -> (Comp)?S
+Aux -> (Inf.|Modal)?(Perf.)?(Prog.)
+
+"""
+
+articutPOS = """
+AP -> (deg)? A (PP|S')?
+A -> MODIFIER | MODIFIER_color
+deg -> FUNC_degreeHead
+
+PP -> P (NP)?
+P -> RANGE_locality | RANGE_period
+VP -> ACTION_verb NP?
+NP -> ENTITY_pronoun|(Det)? (AP)? N (PP)? (S')?
+N -> ENTITY_[^classifier]
+Det -> FUNC_determiner
+
+"""
+
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
