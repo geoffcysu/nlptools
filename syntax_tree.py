@@ -13,6 +13,7 @@ text1 = "<a>x</a><a>y</a><b>0</b>"
 
 parserDict = parserOfRules(rule1)
 tree = parserDict.ruleParser['p1'].parse(text1)
+#parserDict.singleEntry = p1 | p2
 """
 Use tree.ppstr() to get the string of the pretty-printting-string,
 or tree.pprint() to directly print it.
@@ -22,6 +23,16 @@ p1____a(x)
 |_____p2____p1____a(y)
             |_____p2____b(0)
 """
+
+rule2 = """
+DP -> FUNC_degreeHead MODIFIER
+S -> ENTITY_pronoun DP
+"""
+
+text2 = "<ENTITY_pronoun>她</ENTITY_pronoun><FUNC_degreeHead>很</FUNC_degreeHead><MODIFIER>開心</MODIFIER>"
+parserDict = parserOfRules(rule2)
+tree = parserDict.ruleParser['S'].parse(text2)
+tree.pprint()
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
