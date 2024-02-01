@@ -13,6 +13,10 @@ import re
 import parsy
 
 from string import ascii_uppercase
+
+NO_TYPEGUARD = True
+
+
 _A = TypeVar('_A')
 _upperCases : list[str] = [c for c in ascii_uppercase]
 indent = "    "
@@ -70,19 +74,16 @@ indent = "    "
 #TODO: add runtime type check
 
 def main():
-    process_the_file('testing.txt')
-    # if len(sys.argv) != 2:
-    #     print("Usage: python script.py <filename>")
-    #     sys.exit(1)
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <filename>")
+        sys.exit(1)
 
-    # filename = sys.argv[1]
+    filename = sys.argv[1]
 
-    # # Prompt the user for their choice
-    # choice = input("Do you want to print the file on the screen? (yes/no): ").strip().lower()
-
+    process_the_file(filename)
+    print("Finished generating adts.")
 
 
-from pprint import pprint
 from icecream import ic
 def process_the_file(filename):
     try:
@@ -346,13 +347,14 @@ parseDataDef = parsy.seq(
 #----------------------------------------------------------------
 #------------------- III. Code generation -----------------------
 #----------------------------------------------------------------
-# ENTRY: generate_code
+# ENTRY: generate_code_of_datadefs: List[DataDef] -> Iterator[str]
 
 
 def generate_code_of_datadefs(datas:List[DataDef])->Iterator[str]:
     # construct the typevar map
     # the idea: the typevar in ast map to an actual typevar name
-    typevar_num = max(*map(lambda dd:len(dd.typeVars), datas))
+    typevar_num = max(*(len(dd.typeVars) for dd in datas)) \
+                    if len(datas)>1 else len(datas[0].typeVars)
     typevar_list = typevarList(typevar_num)
     
     subst_datas = [data.copy().subst_with_dict(typevarMap(typevar_list, data)) 
@@ -386,9 +388,10 @@ def typevarMap(typevars:List[str],data:DataDef)->Dict[str,str]:
 def gen_aux(typevars:List[str])->List[str]:
     "Generate TypeVar declarations"
 
-    return [ "from typing import TypeVar,TypeGuard,Generic,Callable",
+    return [ "from typing import TypeVar,Generic,Callable"\
+                +("" if NO_TYPEGUARD else ",TypeGuard"),
              ','.join(typevars)\
-                 + " = "\
+                 + (" = " if typevars else "")\
                  + ','.join(map(lambda t:f"TypeVar('{t}')", typevars)),
              "_T_ = TypeVar('_T_')"
            ]
@@ -438,7 +441,7 @@ def gen_typedef(dataDef:DataDef)->Iterator[str]:
         description = f"Can only be {ctors[0].ctorName}."
     else:
         description = "Can be either "\
-                      + ','.join([c.ctorName for c in ctors[:-1]])\
+                      + ', '.join([c.ctorName for c in ctors[:-1]])\
                       + ("," if ctorNum>2 else "")\
                       + f" or {ctors[-1].ctorName}."
     return chain(
@@ -457,17 +460,20 @@ def replaceWithAny(patterns:List[str],input:str)->str:
     else:
         return input
 
+
 def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
     typeName: str = dataDef.typeName
     ctorName: str = ctor.ctorName
     def_typevars: List[str] = dataDef.typeVars
-    ctor_typevars: set[str] = ctor.extract_typevars()
-    def_type_str = "{}[{}]".format(typeName,','.join(def_typevars))
+    ctor_typevars: set[str] = ctor.extract_typevars().intersection(set(def_typevars))
+        # is actually bounded vars (bounded by def_typevars)
+    def_type_str = "{}[{}]".format(typeName,','.join(def_typevars)) if def_typevars else typeName
+        #e.g., Lst[a]
     generic_def_type_str = replaceWithAny(list(set(def_typevars)-ctor_typevars), 
                                           def_type_str)
     
     # constructing inherit_part
-    if ctor.args:
+    if ctor_typevars:
         inherit_part = \
             "Generic[{}],{}".format(
                 ','.join(ctor_typevars),
@@ -497,6 +503,19 @@ def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
         )
     else:
         initBlock = []
+    
+    #isCtor_part
+    if NO_TYPEGUARD:
+        isCtor_part = []
+    else:
+        isCtor_part = \
+            ["def is{}(x:{})->TypeGuard[{}]:".format(
+                ctorName,
+                generic_def_type_str,
+                "{}[{}]".format(ctorName, ','.join(ctor_typevars)) 
+                    if ctor.args else ctorName)
+            , indent+"return type(x) is "+ctorName,
+            ]
 
     return chain(
         #class declaration
@@ -518,14 +537,7 @@ def gen_one_ctor(dataDef:DataDef, ctor:Ctor)->Iterator[str]:
                  ','.join(f"self.{field}" for field in fields))],
         
         #isCtor test function
-        ["def is{}(x:{})->TypeGuard[{}]:".format(
-            ctorName,
-            generic_def_type_str,
-            "{}[{}]".format(ctorName, ','.join(ctor_typevars)) 
-                if ctor.args else ctorName
-         ),
-         indent+"return type(x) is "+ctorName,
-        ],
+        isCtor_part,
 
         #an empty line
         [""]
