@@ -72,10 +72,15 @@ indent = "    "
 # # End of generated code
 
 #TODO: add runtime type check
+#  - exception of calling the type constructors in the wrong way
+#  - haskell syntax
+#  - argparse:
+#   - backup file: switch, clean
+#   - typeguard option
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python script.py <filename>")
+        print("Usage: python genadt.py <filename>")
         sys.exit(1)
 
     filename = sys.argv[1]
@@ -84,7 +89,6 @@ def main():
     print("Finished generating adts.")
 
 
-from icecream import ic
 def process_the_file(filename):
     try:
         with open(filename, 'r') as file:
@@ -97,20 +101,15 @@ def process_the_file(filename):
         adtblocks:List[AdtDeclBlock] = _1
         postlines:List[str] = _2
 
-        #fix: do the parsing and generation before writing the file
-        #fix: recover the adt declaration lines
-
         processedAdts = list(map(ProcessedAdtBlock.fromAdtDecl, adtblocks))
+        generated:str = \
+            "".join(
+                "".join(x.generate_code()) for x in processedAdts)
 
-        with open("testoutput.txt", 'w') as file:
-            for proccessedAdt in processedAdts:
-                file.writelines(proccessedAdt.generate_code())
+        with open(filename, 'w') as file:
+            file.write(generated)
             file.writelines(postlines)
                     
-        
-        
-        
-
     except FileNotFoundError:
         print(f"Error: The file '{filename}' was not found.")
 
