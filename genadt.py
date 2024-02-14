@@ -71,7 +71,10 @@ indent = "    "
 #
 # # End of generated code
 
-#TODO: add runtime type check
+#TODO: 
+#  - add runtime type check
+#  - handle comments in adt blocks
+#  - adding Ctor.t function that takes a tuple as argument
 #  - exception of calling the type constructors in the wrong way
 #  - haskell syntax
 #  - argparse:
