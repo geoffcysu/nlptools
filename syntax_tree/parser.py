@@ -270,6 +270,7 @@ def parserOfRules(ruleStr:str)->FinalParsingResult:
     return FinalParsingResult(ruleDefDict, ruleParserDict)
 
 
+
 def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast.RuleTerm)->Parser[SyntaxTree]:
     
     return rt.match( #-> Parser[SyntaxTree]
@@ -286,6 +287,10 @@ def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast.RuleTerm)->Parser[
                      ruleTerms))
     )
 
+class _RuleTermParsersOfCtx:
+    pc: ParsingContext
+    def __init__(self,pc:ParsingContext):
+        self.pc = pc
 
 def _termOf(pc:ParsingContext)-> Parser[ast.RuleTerm]:
     
