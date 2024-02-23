@@ -33,6 +33,8 @@ text2 = "<ENTITY_pronoun>她</ENTITY_pronoun><FUNC_degreeHead>很</FUNC_degreeHe
 parserDict = parserOfRules(rule2)
 tree = parserDict.ruleParser['S'].parse(text2)
 
+tree.pprint()
+
 PSR = """
 S -> (NP|S') (Aux)? VP
 NP -> (pronoun|(Det)? (AP)? N (PP)? (S')?)
@@ -58,8 +60,23 @@ NP -> ENTITY_pronoun|(Det)? (AP)? N (PP)? (S')?
 N -> ENTITY_[^classifier]
 Det -> FUNC_determiner
 
-"""
+np --> classifier (Modifier)*? n
+modifier --> anything + 的_func_inner
 
+"""
+#TODOs:
+#   - implement typed parser, lazy parser
+#   - add simple regex: ^start-with, end-with$, !not
+#   - add complex parsing rules
+#   - consider keeping parsing trace
+
+
+# testing
+test_rule3 = """
+p1 -> a (b c)
+"""
+parserDict = parserOfRules(test_rule3)
+parserDict.ruleParser['p1']
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
