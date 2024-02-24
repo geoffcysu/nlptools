@@ -5,7 +5,8 @@ import re
 from functools import wraps,partial
 from dataclasses import dataclass
 from syntax_tree.type import SyntaxTree,TokenOfPos
-import syntax_tree.ast as ast
+# import syntax_tree.ast as ast
+import syntax_tree.ast2 as ast2
 
 import parsy
 
@@ -287,48 +288,91 @@ def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast.RuleTerm)->Parser[
                      ruleTerms))
     )
 
+
 class _RuleTermParsersOfCtx:
     pc: ParsingContext
-    def __init__(self,pc:ParsingContext):
+    ruleDef: Parser[ast2.RuleDef]
+    seq: Parser[ast2.RuleTerm]
+    alt: Parser[ast2.RuleTerm]
+    term: Parser[ast2.RuleTerm]
+
+    def __init__(self, pc:ParsingContext):
         self.pc = pc
 
-def _termOf(pc:ParsingContext)-> Parser[ast.RuleTerm]:
-    
-    def decideId(id:str)->ast.RuleTerm:
-        if id in pc.phraseSet:
-            return ast.RuleName(id)
-        else:
-            return ast.PosToken(id)
-    
-    return _identifier.map(decideId)
-    # return alt(
-    #     _tokP('(') >> LazyParser("_altOf(pc)",globals(),locals()) << _tokP(')'),
-    #     _identifier.map(decideId),
-    # )
-def _seqOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
-    return _termOf(pc).at_least(1).map(ast.Seq)
-def _altOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
-    def f(a:list[ast.RuleTerm])->ast.RuleTerm:
-        if len(a)==1:
-            return a[0]
-        else:
-            return ast.Alt(a)
-    
-    return _seqOf(pc)\
-           .sep_by(_tokP('|'),min=1)\
-           .map(f)
+        alt: Parser[ast2.RuleTerm] = parsy.forward_declaration()
 
-def _ruleDefOf(pc:ParsingContext)->Parser[ast.RuleDef]:
-    return seq((_headIdentifier << _tokP('->')),
-                _altOf(pc)
-           ).map(lambda t:ast.RuleDef(t[0],t[1]))#type:ignore
-    # @generate
-    # def p():
-    #     ruleName = yield _headIdentifier
-    #     yield Parser(parsy.match_item('->'))
-    #     ruleTerm:ast.RuleTerm = yield _altOf(pc)
-    #     return ast.RuleDef(ruleName,ruleTerm)
-    # return p
+        def decideId(id:str)->ast2.RuleTerm:
+            if id in pc.phraseSet:
+                return ast.RuleName(id)
+            else:
+                return ast.PosToken(id)
+        term: Parser[ast2.RuleTerm] = \
+            alt(
+                _tokP('(') >> alt << _tokP(')'),
+                _identifier.map(decideId),
+            )
+        self.term = term
+
+        seq: Parser[ast2.RuleTerm] =\
+            term(pc).at_least(1).map(ast2.Seq)
+        self.seq = seq
+
+        def lst2Alts(a:list[ast2.RuleTerm])->ast2.RuleTerm:
+            if len(a)==1:
+                return a[0]
+            else:
+                return ast2.Alt(a)
+        alt.become( #Parser[ast2.RuleTerm]
+            seq(pc)\
+                .sep_by(_tokP('|'), min=1)\
+                .map(lst2Alts)
+        )
+        self.alt = alt
+        
+        ruleDef:Parser[ast2.RuleDef] = \
+             seq((_headIdentifier << _tokP('->')),
+                 alt
+                ).map(lambda t:ast2.RuleDef(t[0],t[1]))#type:ignore
+        self.ruleDef = ruleDef
+
+
+# def _termOf(pc:ParsingContext)-> Parser[ast.RuleTerm]:
+    
+#     def decideId(id:str)->ast.RuleTerm:
+#         if id in pc.phraseSet:
+#             return ast.RuleName(id)
+#         else:
+#             return ast.PosToken(id)
+    
+#     return _identifier.map(decideId)
+#     # return alt(
+#     #     _tokP('(') >> LazyParser("_altOf(pc)",globals(),locals()) << _tokP(')'),
+#     #     _identifier.map(decideId),
+#     # )
+# def _seqOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
+#     return _termOf(pc).at_least(1).map(ast.Seq)
+# def _altOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
+#     def f(a:list[ast.RuleTerm])->ast.RuleTerm:
+#         if len(a)==1:
+#             return a[0]
+#         else:
+#             return ast.Alt(a)
+    
+#     return _seqOf(pc)\
+#            .sep_by(_tokP('|'),min=1)\
+#            .map(f)
+
+# def _ruleDef(pc:ParsingContext)->Parser[ast.RuleDef]:
+#     return seq((_headIdentifier << _tokP('->')),
+#                 _altOf(pc)
+#            ).map(lambda t:ast.RuleDef(t[0],t[1]))#type:ignore
+#     # @generate
+#     # def p():
+#     #     ruleName = yield _headIdentifier
+#     #     yield Parser(parsy.match_item('->'))
+#     #     ruleTerm:ast.RuleTerm = yield _altOf(pc)
+#     #     return ast.RuleDef(ruleName,ruleTerm)
+#     # return p
 
 
 

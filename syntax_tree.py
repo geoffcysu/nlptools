@@ -49,14 +49,14 @@ Aux -> (Inf.|Modal)?(Perf.)?(Prog.)
 """
 
 articutPOS = """
-AP -> (deg)? A (PP|S')?
+AP -> (deg)? A PP?
 A -> MODIFIER | MODIFIER_color
 deg -> FUNC_degreeHead
 
 PP -> P (NP)?
 P -> RANGE_locality | RANGE_period
 VP -> ACTION_verb NP?
-NP -> ENTITY_pronoun|(Det)? (AP)? N (PP)? (S')?
+NP -> ENTITY_pronoun|(Det)? (AP)? N (PP)?
 N -> ENTITY_[^classifier]
 Det -> FUNC_determiner
 
@@ -73,7 +73,8 @@ modifier --> anything + 的_func_inner
 
 # testing
 test_rule3 = """
-p1 -> a (b c)
+p1 -> a (b c)?
+p2 -> p1 d |  r{a+} b 
 """
 parserDict = parserOfRules(test_rule3)
 parserDict.ruleParser['p1']
