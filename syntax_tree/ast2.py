@@ -1,77 +1,142 @@
-from __future__ import annotations
 
 from typing import Callable, TypeVar
 from syntax_tree.type import TokenOfPos
 
 from dataclasses import dataclass
 
-_A,_B,_C,_T = TypeVar('_A'),TypeVar('_B'),TypeVar('_C'),TypeVar('_T')
+# """
+# TokenOfPOS(s:str)
+#   a proper name
+# RuleName(s:str)
+#   a proper name
+# RegexTerm(s:str)
+#   r{ENTITY_.*}
+# Alt(ts:list[RuleTerm])
+#   a | b | c
+# Seq(ts:list[RuleTerm])
+#   a b c
+# Opt(t:RuleTerm)
+#   a?
+
+# Many Optional[int] RuleTerm
+# """
 
 
-""" ast:
-data RuleTerm = TokenOfPOS str
-              | RuleName str
-              | RegexTerm str
-              | Alt list[RuleTerm]
-              | Seq list[RuleTerm]
-
-              | Opt RuleTerm 
-              | Many Optional[int] RuleTerm
-
-data RuleDef = RuleDef {ruleName:str, ruleTerm:RuleTerm}
+""" adt:
+data RuleTerm = TokenOfPOS(s:str)
+              | RuleName(s:str)
+              | RegexTerm(s:str)
+              | Alt(ts:list[RuleTerm])
+              | Seq(ts:list[RuleTerm])
+              | Opt(t:RuleTerm)
 """
+# The code below is generated according to the definition above; hash=ed632fca95
 
+from typing import TypeVar,Generic,Callable
+
+_T_ = TypeVar('_T_')
 class RuleTerm:
-    d: tuple
-    __ctor: Callable
-    def __init__(self,ctor:Callable[...,RuleTerm],d:tuple):
-        self.d = d
-        self.__ctor = ctor
-    def match(self,
-                posToken: Callable[[str],_T],
-                ruleName: Callable[[str],_T],
-                alt:Callable[[list[RuleTerm]],_T],
-                seq:Callable[[list[RuleTerm]],_T],
-                # opt:Callable[[RuleTerm],_T],
-                )->_T:
-        if self.__ctor == PosToken:
-            return posToken(*self.d)
-        elif self.__ctor == RuleName:
-            return ruleName(*self.d)
-        elif self.__ctor == Alt:
-            return alt(*self.d)
-        elif self.__ctor == Seq:
-            return seq(*self.d)
-        # elif self.__ctor == Opt:
-        #     return opt(*self.d)
-        else:
-            raise Exception(f'Failed to pattern match {str(self)}.')
-    
-    def iscase(self,thecase:Callable):
-        return self.__ctor == thecase
+    "Can be either TokenOfPOS, RuleName, RegexTerm, Alt, Seq, or Opt."
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        ...
 
-    def __repr__(self):
-        if self.__ctor == PosToken:
-            return f'PosToken({self.d})'
-        elif self.__ctor == RuleName:
-            return f'RuleName({self.d})'
-        elif self.__ctor == Alt:
-            return f'Alt({self.d})'
-        elif self.__ctor == Seq:
-            return f'Seq({self.d})'
+class TokenOfPOS(RuleTerm):
+    s: str
+    def __init__(self,s:str):
+        self.s = s
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return tokenOfPOS(self.s)
 
-def PosToken(a1:str)->RuleTerm:
-    return RuleTerm(PosToken,(a1,))
-def RuleName(a1:str)->RuleTerm:
-    return RuleTerm(RuleName,(a1,))
-def Alt(a1:list[RuleTerm])->RuleTerm:
-    return RuleTerm(Alt,(a1,))
-def Seq(a1:list[RuleTerm])->RuleTerm:
-    return RuleTerm(Seq,(a1,))
-# def Opt(a1:RuleTerm)->RuleTerm:
-#     return RuleTerm(Opt,(a1,))
+class RuleName(RuleTerm):
+    s: str
+    def __init__(self,s:str):
+        self.s = s
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return ruleName(self.s)
+
+class RegexTerm(RuleTerm):
+    s: str
+    def __init__(self,s:str):
+        self.s = s
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return regexTerm(self.s)
+
+class Alt(RuleTerm):
+    ts: list[RuleTerm]
+    def __init__(self,ts:list[RuleTerm]):
+        self.ts = ts
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return alt(self.ts)
+
+class Seq(RuleTerm):
+    ts: list[RuleTerm]
+    def __init__(self,ts:list[RuleTerm]):
+        self.ts = ts
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return seq(self.ts)
+
+class Opt(RuleTerm):
+    t: RuleTerm
+    def __init__(self,t:RuleTerm):
+        self.t = t
+    def match(self,*,
+              tokenOfPOS: Callable[[str], _T_],
+              ruleName: Callable[[str], _T_],
+              regexTerm: Callable[[str], _T_],
+              alt: Callable[[list[RuleTerm]], _T_],
+              seq: Callable[[list[RuleTerm]], _T_],
+              opt: Callable[['RuleTerm'], _T_],
+             )->_T_:
+        return opt(self.t)
 
 
+# End of generated code.
+
+
+
+# data RuleDef = RuleDef {ruleName:str, ruleTerm:RuleTerm}
 @dataclass
 class RuleDef:
     ruleName:str
