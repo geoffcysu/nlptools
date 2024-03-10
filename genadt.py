@@ -72,6 +72,9 @@ indent = "    "
 # # End of generated code
 
 #TODO: 
+#  - different ways of implementation: use inheritance, use Union type
+#    - for new type annotation
+#  - match
 #  - add runtime type check
 #  - handle comments in adt blocks
 #  - adding Ctor.t function that takes a tuple as argument
@@ -400,14 +403,21 @@ def gen_aux(typevars:List[str])->List[str]:
 
 def wrap_recursive_type(t:TypeExpr, rt:str)->str:
     """
-    If t is the same as the type we're defining, wrap a pair of `\'` around it.
+    If t has any reference to rt, then t should be wrapped as a string.
     For example, when defining the class `Lst`, all the occurrences of `Lst`
     should be wrapped like `'Lst[int]'`, `'Lst[Lst[Any]]'`.
     """
-    if t.typeName==rt:
+    def exist_rt(te:TypeExpr)->bool:
+        if te.typeName == rt:
+            return True
+        else:
+            return any(exist_rt(tt) for tt in te.args)
+    
+    if exist_rt(t):
         return f"'{str(t)}'"
     else:
         return str(t)
+
 def ctorMatchSignature(retType:str, rectype:str)->Callable[[Ctor],str]:
     "example: Cons ==> 'cons:Callable[[_T,Lst[_T]],Lst[_T]]'"
     def f(ctor:Ctor)->str:
