@@ -1,7 +1,4 @@
 
-from typing import Callable, TypeVar
-from syntax_tree.type import TokenOfPos
-
 from dataclasses import dataclass
 
 # """
@@ -41,8 +38,8 @@ class RuleTerm:
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         ...
@@ -55,8 +52,8 @@ class TokenOfPOS(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return tokenOfPOS(self.s)
@@ -69,8 +66,8 @@ class RuleName(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return ruleName(self.s)
@@ -83,8 +80,8 @@ class RegexTerm(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return regexTerm(self.s)
@@ -97,8 +94,8 @@ class Alt(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return alt(self.ts)
@@ -111,8 +108,8 @@ class Seq(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return seq(self.ts)
@@ -125,8 +122,8 @@ class Opt(RuleTerm):
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
               regexTerm: Callable[[str], _T_],
-              alt: Callable[[list[RuleTerm]], _T_],
-              seq: Callable[[list[RuleTerm]], _T_],
+              alt: Callable[['list[RuleTerm]'], _T_],
+              seq: Callable[['list[RuleTerm]'], _T_],
               opt: Callable[['RuleTerm'], _T_],
              )->_T_:
         return opt(self.t)
@@ -134,9 +131,6 @@ class Opt(RuleTerm):
 
 # End of generated code.
 
-
-
-# data RuleDef = RuleDef {ruleName:str, ruleTerm:RuleTerm}
 @dataclass
 class RuleDef:
     ruleName:str

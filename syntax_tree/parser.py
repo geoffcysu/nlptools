@@ -41,6 +41,8 @@ class Parser(Generic[_A]):
         else:
             raise Exception("No `become` method.")
     
+    def optional(self)->Parser[Optional[_A]]:
+        return Parser(self._parser.optional())
     def many(self)->Parser[list[_A]]:
         return self.times(0, float("inf"))#type:ignore
     def at_least(self, n: int) -> Parser:
@@ -173,7 +175,10 @@ _headIdRegex:str = r'(?P<headId>(^\s*|\r\n\s*|\n\s*)(?P<idbody>[a-zA-Z_][\w]*))'
 
 # Turns all possible format of newline into '\n'.
 def _tokenize(input:str)->list[str]:
-    ms = re.finditer(f'{_headIdRegex}|{_idRegex}' + r'|\||[?+*]|\(|\)|->', input)
+    ms = re.finditer(r'r\{.*?\}'                    # for RegexTerm
+                     + f'|{_headIdRegex}|{_idRegex}'  # for TokenOfPOS, RuleName
+                     + r'|[|()]|->|\?'
+                    , input)
     res = []
     for m in ms:
         d = m.groupdict()
@@ -185,14 +190,15 @@ def _tokenize(input:str)->list[str]:
     return res
 
 
-def _regexP(regex:str)->Parser[str]:
+def _regexP(regex:str,group=0)->Parser[str]:
     @parsy.Parser
     def p(stream, index):
         if index < len(stream):
             tok = stream[index]
-            if re.fullmatch(regex,stream[index]):
-                return parsy.Result.success(index+1, tok)
-        return parsy.Result.failure(index, "token matching '{0}'".format(regex))
+            m = re.match(regex,tok)
+            if m and m.span()[1]==len(tok):
+                return parsy.Result.success(index+1, m.group(group))
+        return parsy.Result.failure(index, "token fully matching '{0}'".format(regex))
     return Parser(p)
 
 _identifier = _regexP(_idRegex)
@@ -243,7 +249,7 @@ def _tokenOfPos(pos:str)->Parser[SyntaxTree]:
 
 @dataclass
 class FinalParsingResult:
-    ruleDef: Dict[str, ast.RuleTerm]
+    ruleDef: Dict[str, ast2.RuleTerm]
     ruleParser: Dict[str, Parser[SyntaxTree]]
 
     def singleEntry(self)->Parser[SyntaxTree]:
@@ -260,8 +266,8 @@ def parserOfRules(ruleStr:str)->FinalParsingResult:
     pc = ParsingContext(set(ruleNames))
     
     # Parse AST
-    ruleDefs:list[ast.RuleDef] = _ruleDefOf(pc).many().parse(toks)
-    ruleDefDict:Dict[str, ast.RuleTerm] = dict((rd.ruleName,rd.ruleTerm) for rd in ruleDefs)
+    ruleDefs:list[ast2.RuleDef] = _ruleDefOf(pc).many().parse(toks)
+    ruleDefDict:Dict[str, ast2.RuleTerm] = dict((rd.ruleName,rd.ruleTerm) for rd in ruleDefs)
 
     # Generate parser according to the AST
     ruleParserDict = dict((rd.ruleName, _ruleTermToParser(pc,rd.ruleName,rd.ruleTerm)) 
@@ -272,7 +278,7 @@ def parserOfRules(ruleStr:str)->FinalParsingResult:
 
 
 
-def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast.RuleTerm)->Parser[SyntaxTree]:
+def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast2.RuleTerm)->Parser[SyntaxTree]:
     
     return rt.match( #-> Parser[SyntaxTree]
         posToken=lambda pos: _tokenOfPos(pos),
@@ -291,47 +297,56 @@ def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast.RuleTerm)->Parser[
 
 class _RuleTermParsersOfCtx:
     pc: ParsingContext
+
     ruleDef: Parser[ast2.RuleDef]
-    seq: Parser[ast2.RuleTerm]
-    alt: Parser[ast2.RuleTerm]
+    alt_terms: Parser[ast2.RuleTerm]
+    term_seq: Parser[ast2.RuleTerm]
+    opt_term: Parser[ast2.RuleTerm]
     term: Parser[ast2.RuleTerm]
 
     def __init__(self, pc:ParsingContext):
         self.pc = pc
 
-        alt: Parser[ast2.RuleTerm] = parsy.forward_declaration()
+        alt_terms: Parser[ast2.RuleTerm] = forward_declaration()
 
         def decideId(id:str)->ast2.RuleTerm:
             if id in pc.phraseSet:
-                return ast.RuleName(id)
+                return ast2.RuleName(id)
             else:
-                return ast.PosToken(id)
+                return ast2.TokenOfPOS(id)
         term: Parser[ast2.RuleTerm] = \
             alt(
-                _tokP('(') >> alt << _tokP(')'),
+                _tokP('(') >> alt_terms << _tokP(')'),
+                _regexP(r'r\{(.*?)\}',group=1).map(ast2.RegexTerm),
                 _identifier.map(decideId),
             )
         self.term = term
 
-        seq: Parser[ast2.RuleTerm] =\
-            term(pc).at_least(1).map(ast2.Seq)
-        self.seq = seq
+        opt_term: Parser[ast2.RuleTerm] = \
+            seq( term
+               , _tokP('?').optional()
+            ).combine(lambda t,o: ast2.Opt(t) if o else t)
+        self.opt_term = opt_term
+
+        term_seq: Parser[ast2.RuleTerm] =\
+            term.at_least(1).map(ast2.Seq)
+        self.term_seq = term_seq
 
         def lst2Alts(a:list[ast2.RuleTerm])->ast2.RuleTerm:
             if len(a)==1:
                 return a[0]
             else:
                 return ast2.Alt(a)
-        alt.become( #Parser[ast2.RuleTerm]
-            seq(pc)\
+        alt_terms.become( #Parser[ast2.RuleTerm]
+            term_seq\
                 .sep_by(_tokP('|'), min=1)\
                 .map(lst2Alts)
         )
-        self.alt = alt
+        self.alt_terms = alt_terms
         
         ruleDef:Parser[ast2.RuleDef] = \
              seq((_headIdentifier << _tokP('->')),
-                 alt
+                 alt_terms
                 ).map(lambda t:ast2.RuleDef(t[0],t[1]))#type:ignore
         self.ruleDef = ruleDef
 
