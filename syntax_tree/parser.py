@@ -3,6 +3,7 @@ from typing import TypeVar, Generic, Callable, Any, Tuple, Optional, Set, Dict\
                    ,Generator, Sequence
 import re
 from functools import wraps,partial
+from itertools import chain
 from dataclasses import dataclass
 from syntax_tree.type import SyntaxTree,TokenOfPos
 # import syntax_tree.ast as ast
@@ -243,56 +244,10 @@ def _tokenOfPos(pos:str)->Parser[SyntaxTree]:
     res._parser.desc('token of POS: '+pos)
     return res
 
-
-
-#-------------- The entrypoint --------------------
-
-@dataclass
-class FinalParsingResult:
-    ruleDef: Dict[str, ast2.RuleTerm]
-    ruleParser: Dict[str, Parser[SyntaxTree]]
-
-    def singleEntry(self)->Parser[SyntaxTree]:
-        return alt(*self.ruleParser.values())
-
-def parserOfRules(ruleStr:str)->FinalParsingResult:
-    # Tokenizing
-    toks = _tokenize(ruleStr)
-    ruleNames = list(map(lambda htok:htok[1:], filter(lambda tok:tok[0]=='\n',toks)))
-    for name in ruleNames:
-        if ruleNames.count(name)>1:
-            raise DuplicateRule(name)
-    
-    pc = ParsingContext(set(ruleNames))
-    
-    # Parse AST
-    ruleDefs:list[ast2.RuleDef] = _ruleDefOf(pc).many().parse(toks)
-    ruleDefDict:Dict[str, ast2.RuleTerm] = dict((rd.ruleName,rd.ruleTerm) for rd in ruleDefs)
-
-    # Generate parser according to the AST
-    ruleParserDict = dict((rd.ruleName, _ruleTermToParser(pc,rd.ruleName,rd.ruleTerm)) 
-                            for rd in ruleDefs)
-    for rn,p in ruleParserDict.items():
-        pc.setPhraseParser(rn,p)
-    return FinalParsingResult(ruleDefDict, ruleParserDict)
-
-
-
-def _ruleTermToParser(pc:ParsingContext, ruleName:str, rt:ast2.RuleTerm)->Parser[SyntaxTree]:
-    
-    return rt.match( #-> Parser[SyntaxTree]
-        posToken=lambda pos: _tokenOfPos(pos),
-        ruleName=lambda rule: pc.phraseParser(rule),
-        seq=lambda ruleTerms:\
-            #homSeq: ...->Parser[list[SyntaxTree]]
-            homSeq(*map(partial(_ruleTermToParser,pc,ruleName), 
-                        ruleTerms)
-            ).map(lambda children: SyntaxTree(ruleName,children)),
-        alt=lambda ruleTerms:\
-            #alt: ...->Parser[SyntaxTree]
-            alt(*map(partial(_ruleTermToParser,pc,ruleName), 
-                     ruleTerms))
-    )
+def _regexOnToken(reg:str)->Parser[SyntaxTree]:
+    p = Parser(_regToken(reg))
+    p._parser.desc('token matching regex: '+reg)
+    return p
 
 
 class _RuleTermParsersOfCtx:
@@ -350,44 +305,73 @@ class _RuleTermParsersOfCtx:
                 ).map(lambda t:ast2.RuleDef(t[0],t[1]))#type:ignore
         self.ruleDef = ruleDef
 
+def _ruleTermToParser(pc:ParsingContext
+                     , ruleName:str
+                     , ruleTerm:ast2.RuleTerm
+                     )->Parser[SyntaxTree]:
 
-# def _termOf(pc:ParsingContext)-> Parser[ast.RuleTerm]:
-    
-#     def decideId(id:str)->ast.RuleTerm:
-#         if id in pc.phraseSet:
-#             return ast.RuleName(id)
-#         else:
-#             return ast.PosToken(id)
-    
-#     return _identifier.map(decideId)
-#     # return alt(
-#     #     _tokP('(') >> LazyParser("_altOf(pc)",globals(),locals()) << _tokP(')'),
-#     #     _identifier.map(decideId),
-#     # )
-# def _seqOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
-#     return _termOf(pc).at_least(1).map(ast.Seq)
-# def _altOf(pc:ParsingContext)->Parser[ast.RuleTerm]:
-#     def f(a:list[ast.RuleTerm])->ast.RuleTerm:
-#         if len(a)==1:
-#             return a[0]
-#         else:
-#             return ast.Alt(a)
-    
-#     return _seqOf(pc)\
-#            .sep_by(_tokP('|'),min=1)\
-#            .map(f)
+    # No matter how complex the rule is, it's a Parser[list[SyntaxTree]]
+    # r -> a (b | c d) | z (c | b d?)
+    # accepts:
+    #   ab,acd,zc,zbd,zb
+    def children_parser(rt:ast2.RuleTerm)->Parser[list[SyntaxTree]]:
+        return rt.match(
+            tokenOfPOS=lambda s: _tokenOfPos(s).map(lambda x:[x])
+            ,ruleName=lambda s: pc.phraseParser(s).map(lambda x:[x])
+            ,regexTerm=lambda s: _regexOnToken(s).map(lambda x:[x])
+            ,alt=lambda ruleTerms:\
+                    # should make the parsers parallel
+                    # e.g., the parser `r->a b | c d` is reading either the
+                    # sequence 'ab' or 'cd'.
+                    alt(*map(children_parser, ruleTerms))
+            ,seq=lambda ruleTerms:\
+                    # should chain the parsers
+                    # e.g., the parser `r->(a a) (b b)` accepts only the 
+                    # concatenation of 'aa' and 'bb'.
+                    #homSeq: 
+                    #   Parser[     list[SyntaxTree]]
+                    #-> Parser[list[list[SyntaxTree]]]
+                    homSeq(*map(children_parser, ruleTerms)
+                    ).map(lambda children: list(chain.from_iterable(children)))
+            ,opt=lambda rt:children_parser(rt).optional()\
+                           .map(lambda m_ts:[] if (m_ts is None) else m_ts)
+        )
 
-# def _ruleDef(pc:ParsingContext)->Parser[ast.RuleDef]:
-#     return seq((_headIdentifier << _tokP('->')),
-#                 _altOf(pc)
-#            ).map(lambda t:ast.RuleDef(t[0],t[1]))#type:ignore
-#     # @generate
-#     # def p():
-#     #     ruleName = yield _headIdentifier
-#     #     yield Parser(parsy.match_item('->'))
-#     #     ruleTerm:ast.RuleTerm = yield _altOf(pc)
-#     #     return ast.RuleDef(ruleName,ruleTerm)
-#     # return p
+    return children_parser.map(lambda children: \
+                               SyntaxTree(ruleName,children))
+
+#-------------- The entrypoint --------------------
+
+@dataclass
+class FinalParsingResult:
+    ruleDef: Dict[str, ast2.RuleTerm]
+    ruleParser: Dict[str, Parser[SyntaxTree]]
+
+    def singleEntry(self)->Parser[SyntaxTree]:
+        return alt(*self.ruleParser.values())
+
+def parserOfRules(ruleStr:str)->FinalParsingResult:
+    # Tokenizing
+    toks = _tokenize(ruleStr)
+    ruleNames = list(map(lambda htok:htok[1:], filter(lambda tok:tok[0]=='\n',toks)))
+    for name in ruleNames:
+        if ruleNames.count(name)>1:
+            raise DuplicateRule(name)
+    
+    pc = ParsingContext(set(ruleNames))
+    ruleTerm_parsers = _RuleTermParsersOfCtx(pc)
+    
+    # Parse AST
+    ruleDefs:list[ast2.RuleDef] = ruleTerm_parsers.ruleDef.many().parse(toks)
+    ruleDefDict:Dict[str, ast2.RuleTerm] = dict((rd.ruleName,rd.ruleTerm) for rd in ruleDefs)
+
+    # Generate parser according to the AST
+    ruleParserDict = dict((rd.ruleName, _ruleTermToParser(pc,rd.ruleName,rd.ruleTerm)) 
+                            for rd in ruleDefs)
+    for rn,p in ruleParserDict.items():
+        pc.setPhraseParser(rn,p)
+    return FinalParsingResult(ruleDefDict, ruleParserDict)
+
 
 
 
