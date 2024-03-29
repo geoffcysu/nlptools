@@ -88,6 +88,15 @@ def run_test_rule3():
     r3_p1.parse(r3_t2).pprint()
     r3_p1.parse(r3_t3).pprint()
 
+test_rule4 = """
+p1 -> a b
+    | a c
+"""
+r4_t1 = "<a>x1</a><c>x2</c>" #should fail
+parserDict = parserOfRules(test_rule4)
+r4_p1 = parserDict.ruleParser['p1']
+r4_p1.parse(r4_t1).pprint()
+
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
 

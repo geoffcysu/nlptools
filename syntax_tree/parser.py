@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TypeVar, Generic, Callable, Any, Tuple, Optional, Set, Dict\
-                   ,Generator, Sequence
+                   ,Generator, Sequence, Union
 import re
 from functools import wraps,partial
 from itertools import chain
@@ -24,6 +24,8 @@ class Parser(Generic[_A]):
         return Parser(self._parser.desc(description))
     def parse(self,str)->_A:
         return self._parser.parse(str)
+    def parse_partial(self,str)->tuple[_A,Union[str,bytes,list]]:
+        return self._parser.parse_partial(str)
     def map(self,f:Callable[[_A],_T])->Parser[_T]:
         return Parser(self._parser.map(f))
     def times(self, min: int, max: int = None) -> Parser:#type:ignore 
@@ -128,7 +130,7 @@ class ParsingContext:
         self._phraseSet = phraseSet
         d : Dict[str,Parser[SyntaxTree]]= {}
         for w in phraseSet:
-            assert re.fullmatch(r'[a-zA-Z_][\w]*',w), "phrase should be an identifier"
+            # assert re.fullmatch(r'[a-zA-Z_][\w]*',w), "phrase should be an identifier"
             d[w] = forward_declaration()
         self._initPP = d
         self._phraseParser = {}
@@ -170,9 +172,9 @@ class ParsingContext:
 
 #-------------- Utility parsers------------
 
-_idRegex:str = r'(?P<id>[a-zA-Z_][\w]*)'
+_idRegex:str = r'(?P<id>[a-zA-Z_][\w\']*)'
 _typRegex:str = r'[A-Z][\w]*'
-_headIdRegex:str = r'(?P<headId>(^\s*|\r\n\s*|\n\s*)(?P<idbody>[a-zA-Z_][\w]*))'
+_headIdRegex:str = r'(?P<headId>(^\s*|\r\n\s*|\n\s*)(?P<idbody>[a-zA-Z_][\w\']*))'
 
 # Turns all possible format of newline into '\n'.
 def _tokenize(input:str)->list[str]:
@@ -236,7 +238,7 @@ def _regToken(reg:str)->parsy.Parser:
         pos = yield parsy.regex(reg)
         yield parsy.string('>')
         content = yield parsy.regex('[^<]*')
-        yield parsy.regex(f'</{pos}>')
+        yield parsy.regex(f'</{pos}>'+r'\s*')
         return SyntaxTree(TokenOfPos(pos,content))
     
     f.desc('regToken')
@@ -297,6 +299,7 @@ class _RuleTermParsersOfCtx:
             else:
                 return ast2.Alt(a)
         alt_terms.become( #Parser[ast2.RuleTerm]
+            _tokP('|').optional() >>
             term_seq\
                 .sep_by(_tokP('|'), min=1)\
                 .map(lst2Alts)
