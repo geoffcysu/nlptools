@@ -221,7 +221,11 @@ def __headIdentifier(stream,i):
 # Receive a token starting with '\n', return the token without '\n'
 _headIdentifier:Parser[str] = Parser(__headIdentifier)
 
-
+def log(p:Parser[_A])->Parser[_A]:
+    def f(a:_A)->_A:
+        print(a)
+        return a
+    return p.map(f)
 
 #-------------- utility for the result parser-----
 
@@ -277,14 +281,14 @@ class _RuleTermParsersOfCtx:
             )
         self.term = term
 
-        opt_term: Parser[ast2.RuleTerm] = \
+        opt_term :Parser[ast2.RuleTerm] =\
             seq( term
                , _tokP('?').optional()
             ).combine(lambda t,o: ast2.Opt(t) if o else t)
         self.opt_term = opt_term
 
         term_seq: Parser[ast2.RuleTerm] =\
-            term.at_least(1).map(ast2.Seq)
+            opt_term.at_least(1).map(ast2.Seq)
         self.term_seq = term_seq
 
         def lst2Alts(a:list[ast2.RuleTerm])->ast2.RuleTerm:
@@ -337,8 +341,9 @@ def _ruleTermToParser(pc:ParsingContext
                            .map(lambda m_ts:[] if (m_ts is None) else m_ts)
         )
 
-    return children_parser.map(lambda children: \
-                               SyntaxTree(ruleName,children))
+    return children_parser(ruleTerm)\
+           .map(lambda children: \
+                SyntaxTree(ruleName,children))
 
 #-------------- The entrypoint --------------------
 

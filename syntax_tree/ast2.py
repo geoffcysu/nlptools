@@ -44,10 +44,10 @@ class RuleTerm:
              )->_T_:
         ...
 
+
+@dataclass
 class TokenOfPOS(RuleTerm):
     s: str
-    def __init__(self,s:str):
-        self.s = s
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
@@ -58,10 +58,9 @@ class TokenOfPOS(RuleTerm):
              )->_T_:
         return tokenOfPOS(self.s)
 
+@dataclass
 class RuleName(RuleTerm):
     s: str
-    def __init__(self,s:str):
-        self.s = s
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
@@ -72,10 +71,9 @@ class RuleName(RuleTerm):
              )->_T_:
         return ruleName(self.s)
 
+@dataclass
 class RegexTerm(RuleTerm):
     s: str
-    def __init__(self,s:str):
-        self.s = s
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
@@ -86,10 +84,9 @@ class RegexTerm(RuleTerm):
              )->_T_:
         return regexTerm(self.s)
 
+@dataclass
 class Alt(RuleTerm):
     ts: list[RuleTerm]
-    def __init__(self,ts:list[RuleTerm]):
-        self.ts = ts
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
@@ -100,10 +97,9 @@ class Alt(RuleTerm):
              )->_T_:
         return alt(self.ts)
 
+@dataclass
 class Seq(RuleTerm):
     ts: list[RuleTerm]
-    def __init__(self,ts:list[RuleTerm]):
-        self.ts = ts
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],
@@ -114,10 +110,9 @@ class Seq(RuleTerm):
              )->_T_:
         return seq(self.ts)
 
+@dataclass
 class Opt(RuleTerm):
     t: RuleTerm
-    def __init__(self,t:RuleTerm):
-        self.t = t
     def match(self,*,
               tokenOfPOS: Callable[[str], _T_],
               ruleName: Callable[[str], _T_],

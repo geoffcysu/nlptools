@@ -2,6 +2,8 @@
 from typing import TypeVar
 _A,_B,_C,_T = TypeVar('_A'),TypeVar('_B'),TypeVar('_C'),TypeVar('_T')
 
+
+
 #----------syntax_tree example(s)--------
 from syntax_tree.parser import parserOfRules
 
@@ -28,12 +30,10 @@ rule2 = """
 DP -> FUNC_degreeHead MODIFIER
 S -> ENTITY_pronoun DP
 """
-
 text2 = "<ENTITY_pronoun>她</ENTITY_pronoun><FUNC_degreeHead>很</FUNC_degreeHead><MODIFIER>開心</MODIFIER>"
 parserDict = parserOfRules(rule2)
 tree = parserDict.ruleParser['S'].parse(text2)
 
-tree.pprint()
 
 PSR = """
 S -> (NP|S') (Aux)? VP
@@ -77,7 +77,16 @@ p1 -> a (b c)?
 p2 -> p1 d |  r{a+} b 
 """
 parserDict = parserOfRules(test_rule3)
-parserDict.ruleParser['p1']
+r3_p1 = parserDict.ruleParser['p1']
+
+r3_t1 = "<a>x</a>"
+r3_t2 = "<a>x1</a><b>x2</b><a>x3</a><d>x4</d>"
+r3_t3 = "<a>x1</a><b>x2</b><aa>x3</aa><b>x4</b>"
+
+def run_test_rule3():
+    r3_p1.parse(r3_t1).pprint()
+    r3_p1.parse(r3_t2).pprint()
+    r3_p1.parse(r3_t3).pprint()
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
