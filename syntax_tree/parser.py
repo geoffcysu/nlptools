@@ -359,6 +359,10 @@ class FinalParsingResult:
         return alt(*self.ruleParser.values())
 
 def parserOfRules(ruleStr:str)->FinalParsingResult:
+    
+    # Handling comments
+    ruleStr = re.sub(r'#[^\n]*', '', ruleStr)
+
     # Tokenizing
     toks = _tokenize(ruleStr)
     ruleNames = list(map(lambda htok:htok[1:], filter(lambda tok:tok[0]=='\n',toks)))
