@@ -3,13 +3,17 @@ from icecream import ic
 from syntax_tree.parser import parserOfRules
 
 """
+recently implemented:
+    * comment in rule def
+    * "findP" function (given a POS-tagged-string and find out the given phrase parser)
+
+
 TODO:
-comment in rule def
+leave a space for SPEC, but not adjunct
 logging parsing process
 problem of infinite loop
     X' -> X' ADJUNCT
 <MODIFIER>(very|so)</MODIFIER>
-leave a space for SPEC, but not adjunct
 
 """
 

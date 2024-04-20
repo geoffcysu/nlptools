@@ -229,7 +229,7 @@ def log(p:Parser[_A])->Parser[_A]:
         return a
     return p.map(f)
 
-#-------------- utility for the result parser-----
+#-------------- utility for the result parser-----------------------------------
 
 def _regToken(reg:str)->parsy.Parser:
     @parsy.generate
@@ -348,12 +348,40 @@ def _ruleTermToParser(pc:ParsingContext
            .map(lambda children: \
                 SyntaxTree(ruleName,children))
 
+def _tails(src:str)->Generator[str,None,None]:
+    """ Generating a list of tails of a POS string.
+    e.g., "<t1>a</t1><t2>b</t2><t3>c</t3>"
+        => ["<t1>a</t1><t2>b</t2><t3>c</t3>",
+            "<t2>b</t2><t3>c</t3>",
+            "<t3>c</t3>"
+            ]
+    """
+    def mat(s:str)->Optional[re.Match]:
+        return re.match("<.*?>.*?</.*?>", s)
+
+    yield src 
+    x = mat(src)
+    while x:
+        src = src[x.span()[1]:]
+        x = mat(src)
+        if not x: break
+        yield src
 #-------------- The entrypoint --------------------
 
 @dataclass
 class FinalParsingResult:
     ruleDef: Dict[str, ast2.RuleTerm]
     ruleParser: Dict[str, Parser[SyntaxTree]]
+    
+    def findP(self, p:str, src:str)->Optional[SyntaxTree]:
+        trylist = _tails(src)
+        parser = self.ruleParser[p]
+        for s in trylist:
+            try:
+                return parser.parse_partial(s)[0]
+            except:
+                continue
+        return None
 
     def singleEntry(self)->Parser[SyntaxTree]:
         return alt(*self.ruleParser.values())
