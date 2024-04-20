@@ -75,7 +75,7 @@ VP_COMP -> DP
 
 DP -> DP_SPEC? D'
 D' -> D DP_COMP?
-DP_SPEC -> ENTITY_person | DP
+DP_SPEC -> ENTITY_person
 D -> ENTITY_possessive | FUNC_determiner
 DP_COMP -> NP
 
@@ -93,10 +93,30 @@ PP_COMP -> NP
 parserDict = parserOfRules(simple_rules)
 # ic(parserDict)
 
-t1 = "<ENTITY_pronoun>He</ENTITY_pronoun><AUX>is</AUX><MODIFIER>so</MODIFIER><MODIFIER>envious</MODIFIER><FUNC_inner>of</FUNC_inner><ENTITY_possessive>his</ENTITY_possessive><ENTITY_pronoun>sister</ENTITY_pronoun>"
-t2 = "<FUNC_determiner>The</FUNC_determiner><ENTITY_noun>dog</ENTITY_noun><AUX>is</AUX><ENTITY_possessive>my</ENTITY_possessive><ENTITY_possessive>sister's</ENTITY_possessive><ENTITY_nouny>classmate</ENTITY_nouny><AUX>is</AUX><ENTITY_noun>dog</ENTITY_noun>"
+import json
+from requests import post
+
+with open("./account.info", "r", encoding="utf-8") as f:
+    accountDICT = json.load(f)
+
+url = "https://nlu.droidtown.co/Articut/API/"
+payload = {
+    "username": accountDICT["username"],
+    "api_key": accountDICT["apikey"],
+    "input_str": "The dog is my friend."
+}
+
+resultDICT = post(url, json=payload).json()
+#print(resultDICT)
+inputSTR = "".join(resultDICT["result_pos"]).replace(" ","").replace(".", "")
+print(payload["input_str"] + "\n")
+
+#t1 = "<ENTITY_pronoun>He</ENTITY_pronoun><AUX>is</AUX><MODIFIER>so</MODIFIER><MODIFIER>envious</MODIFIER><FUNC_inner>of</FUNC_inner><ENTITY_possessive>his</ENTITY_possessive><ENTITY_pronoun>sister</ENTITY_pronoun>"
+#t2 = "<FUNC_determiner>The</FUNC_determiner><ENTITY_noun>dog</ENTITY_noun><AUX>is</AUX><ENTITY_possessive>my</ENTITY_possessive><ENTITY_noun>dog</ENTITY_noun>"
+
 test_VP = parserDict.ruleParser['VP']
-test_VP.parse(t2).pprint()
+test_VP.parse(inputSTR).pprint()
+
 #ic(parserDict.ruleParser['VP'].parse(t2))
 =======
 # Degree  -> MODIFIER>(very|so|quite)</MODIFIER>
