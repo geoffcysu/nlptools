@@ -9,8 +9,10 @@ recently implemented:
 
 
 TODO:
-leave a space for SPEC, but not adjunct
+r{t[^>]*} ==> r{t.*}
 logging parsing process
+leave a space for SPEC, but not adjunct
+    and binary tree printing issue
 problem of infinite loop
     X' -> X' ADJUNCT
 <MODIFIER>(very|so)</MODIFIER>
@@ -98,8 +100,8 @@ t2 = "<FUNC_determiner>The</FUNC_determiner><ENTITY_noun>dog</ENTITY_noun><AUX>i
 test_VP = parserDict.ruleParser['VP']
 test_VP.parse(t2).pprint()
 #ic(parserDict.ruleParser['VP'].parse(t2))
-=======
 # Degree  -> MODIFIER>(very|so|quite)</MODIFIER>
+
 
 parserDict = parserOfRules(new_rules)
 

@@ -382,6 +382,12 @@ class FinalParsingResult:
             except:
                 continue
         return None
+    # def findAllP(self, p:str, src:str)->Generator[SyntaxTree,None,None]:
+    #     trylist = _tails(src)
+    #     parser = self.ruleParser[p]
+    #     for s in trylist:
+    #         try:
+    #             yield parser.parse_p
 
     def singleEntry(self)->Parser[SyntaxTree]:
         return alt(*self.ruleParser.values())
