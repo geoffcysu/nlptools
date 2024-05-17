@@ -97,6 +97,12 @@ parserDict = parserOfRules(test_rule4)
 r4_p1 = parserDict.ruleParser['p1']
 r4_p1.parse(r4_t1).pprint()
 
+test_regtok1 = """
+p1 -> r{.*}   #this receives any token
+"""
+parserDict = parserOfRules(test_regtok1)
+parserDict.ruleParser['p1'].parse("<abc>xxx</abc>").pprint()
+
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
 

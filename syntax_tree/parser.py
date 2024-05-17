@@ -232,17 +232,35 @@ def log(p:Parser[_A])->Parser[_A]:
 #-------------- utility for the result parser-----------------------------------
 
 def _regToken(reg:str)->parsy.Parser:
+    #Read everything between < and > first, then let the regToken parse that string.
+    posP = parsy.string('<') \
+           >> parsy.regex(r'[^>]*') \
+           << parsy.string('>')
+
     @parsy.generate
-    def f():
-        yield parsy.string('<')
-        pos = yield parsy.regex(reg)
-        yield parsy.string('>')
-        content = yield parsy.regex('[^<]*')
-        yield parsy.regex(f'</{pos}>'+r'\s*')
-        return SyntaxTree(TokenOfPos(pos,content))
+    def g():
+        pos = yield parsy.peek(posP)
+        if not re.match(reg,pos):
+            yield parsy.fail(f"token accords to {reg}")
+        else:
+            yield posP #successed, so move the reading head forward
+            content = yield parsy.regex('[^<]*')
+            yield parsy.regex(f'</{pos}>'+r'\s*')
+            return SyntaxTree(TokenOfPos(pos,content))
     
-    f.desc('regToken')
-    return f
+    g.desc('regToken')
+
+    # @parsy.generate
+    # def f():
+    #     yield parsy.string('<')
+    #     pos = yield parsy.regex(reg)
+    #     yield parsy.string('>')
+    #     content = yield parsy.regex('[^<]*')
+    #     yield parsy.regex(f'</{pos}>'+r'\s*')
+    #     return SyntaxTree(TokenOfPos(pos,content))
+    
+    # f.desc('regToken')
+    return g
 
 
 def _tokenOfPos(pos:str)->Parser[SyntaxTree]:
