@@ -172,7 +172,7 @@ class ParsingContext:
 
 #-------------- Utility parsers------------
 
-_idRegex:str = r'(?P<id>[a-zA-Z_][\w\']*)'
+_idRegex:str = r'([a-zA-Z_][\w\']*)'
 _typRegex:str = r'[A-Z][\w]*'
 _headIdRegex:str = r'(?P<headId>(^\s*|\r\n\s*|\n\s*)(?P<idbody>[a-zA-Z_][\w\']*))'
 
@@ -206,8 +206,22 @@ def _regexP(regex:str,group=0)->Parser[str]:
         if index < len(stream):
             tok = stream[index]
             m = re.match(regex,tok)
-            if m and m.span()[1]==len(tok):
+            if m and m.span()[1]==len(tok): 
+                # It matches to the end of the token,
+                # which means it doesn't just match a part of the token.
                 return parsy.Result.success(index+1, m.group(group))
+        return parsy.Result.failure(index, "token fully matching '{0}'".format(regex))
+    return Parser(p)
+
+def _regexPgs(regex:str)->Parser[list[str]]:
+    "used for when the regex has multiple parts"
+    @parsy.Parser
+    def p(stream, index):
+        if index < len(stream):
+            tok = stream[index]
+            m = re.match(regex,tok)
+            if m and m.span()[1]==len(tok):
+                return parsy.Result.success(index+1, list(m.groups()))
         return parsy.Result.failure(index, "token fully matching '{0}'".format(regex))
     return Parser(p)
 
@@ -248,7 +262,7 @@ def _regToken(reg:str)->parsy.Parser:
     def g():
         pos = yield parsy.peek(posP)
         if not re.match(reg,pos):
-            yield parsy.fail(f"token accords to {reg}")
+            yield parsy.fail(f"POS accords to {reg}")
         else:
             yield posP #successed, so move the reading head forward
             content = yield parsy.regex('[^<]*')
@@ -257,16 +271,6 @@ def _regToken(reg:str)->parsy.Parser:
     
     g.desc('regToken')
 
-    # @parsy.generate
-    # def f():
-    #     yield parsy.string('<')
-    #     pos = yield parsy.regex(reg)
-    #     yield parsy.string('>')
-    #     content = yield parsy.regex('[^<]*')
-    #     yield parsy.regex(f'</{pos}>'+r'\s*')
-    #     return SyntaxTree(TokenOfPos(pos,content))
-    
-    # f.desc('regToken')
     return g
 
 
@@ -280,6 +284,31 @@ def _regexOnToken(reg:str)->Parser[SyntaxTree]:
     p._parser.desc('token matching regex: '+reg)
     return p
 
+def _ContentDependentToken(posReg:str, contentReg:str)->Parser[SyntaxTree]:
+    #Read everything between < and > first, then let the regToken parse that string.
+    posP = parsy.string('<') \
+           >> parsy.regex(r'[^>]*') \
+           << parsy.string('>')
+
+    @parsy.generate
+    def g():
+        pos = yield parsy.peek(posP)
+        if not re.match(posReg,pos):
+            yield parsy.fail(f"POS accords to {posReg} and "
+                             f"content accords to {contentReg}")
+        else:
+            yield posP #successed, so move the reading head forward
+            content = yield parsy.regex('[^<]*')
+            if not re.fullmatch(contentReg,content):
+                yield parsy.fail(f"POS accords to {posReg} and "
+                                f"content accords to {contentReg}")
+            yield parsy.regex(f'</{pos}>'+r'\s*')
+            return SyntaxTree(TokenOfPos(pos,content))
+    
+    g.desc(f"POS accords to {posReg} and "
+            f"content accords to {contentReg}")
+
+    return Parser(g)
 
 class _RuleTermParsersOfCtx:
     pc: ParsingContext
@@ -303,9 +332,12 @@ class _RuleTermParsersOfCtx:
                 return ast2.TokenOfPOS(id)
         term: Parser[ast2.RuleTerm] = \
             alt(
+                _tokP('@').map(lambda _:ast2.Placeholder()),
                 _tokP('(') >> alt_terms << _tokP(')'),
-                _regexP(r'r\{(.*?)\}>([^<]*)<',group=1).map(ast2.RegexTerm),
+                _regexPgs(r'r\{(.*?)\}>([^<]*)<').map(lambda pr:ast2.ContentTerm(*pr)),
                 _regexP(r'r\{(.*?)\}',group=1).map(ast2.RegexTerm),
+                _regexPgs(f'{_idRegex}'+ r'>([^<]*)<').map(lambda pr:ast2.ContentTerm(*pr)),
+                _regexP(r'>([^<]*)<', group=1).map(partial(ast2.ContentTerm,'')),
                 _identifier.map(decideId),
             )
         self.term = term
@@ -353,6 +385,8 @@ def _ruleTermToParser(pc:ParsingContext
             tokenOfPOS=lambda s: _tokenOfPos(s).map(lambda x:[x])
             ,ruleName=lambda s: pc.phraseParser(s).map(lambda x:[x])
             ,regexTerm=lambda s: _regexOnToken(s).map(lambda x:[x])
+            ,contentTerm=lambda p,c: _ContentDependentToken(p,c) #p,c are regex?
+            ,placeholder=lambda : Parser(parsy.success([SyntaxTree('')])) #should it be a TokenOfPos
             ,alt=lambda ruleTerms:\
                     # should make the parsers parallel
                     # e.g., the parser `r->a b | c d` is reading either the
