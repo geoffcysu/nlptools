@@ -178,9 +178,16 @@ _headIdRegex:str = r'(?P<headId>(^\s*|\r\n\s*|\n\s*)(?P<idbody>[a-zA-Z_][\w\']*)
 
 # Turns all possible format of newline into '\n'.
 def _tokenize(input:str)->list[str]:
-    ms = re.finditer(r'r\{.*?\}'                    # for RegexTerm
-                     + f'|{_headIdRegex}|{_idRegex}'  # for TokenOfPOS, RuleName
+    ms = re.finditer(r'r\{.*?\}>[^<]*<'       # for ContentTerm(with the former
+                                              #   part being a regex)
+                     + r'|r\{.*?\}'           # for RegexTerm
+                     + f'|{_headIdRegex}'     # for identifying the identifiers
+                                              #   at the start of a line.
+                     + f'|{_idRegex}?>[^<]*<' # for ContentTerm
+                     + f'|{_idRegex}' # for TokenOfPOS, RuleName 
+                        #(will be decided at term parsing)
                      + r'|[|()]|->|\?'
+                     + f'|@' # for Placeholder
                     , input)
     res = []
     for m in ms:
@@ -289,6 +296,7 @@ class _RuleTermParsersOfCtx:
         alt_terms: Parser[ast2.RuleTerm] = forward_declaration()
 
         def decideId(id:str)->ast2.RuleTerm:
+            "used to decide if the term is a rule name or simply a token of POS"
             if id in pc.phraseSet:
                 return ast2.RuleName(id)
             else:
@@ -296,6 +304,7 @@ class _RuleTermParsersOfCtx:
         term: Parser[ast2.RuleTerm] = \
             alt(
                 _tokP('(') >> alt_terms << _tokP(')'),
+                _regexP(r'r\{(.*?)\}>([^<]*)<',group=1).map(ast2.RegexTerm),
                 _regexP(r'r\{(.*?)\}',group=1).map(ast2.RegexTerm),
                 _identifier.map(decideId),
             )

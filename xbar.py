@@ -10,8 +10,10 @@ recently implemented:
 
 TODO:
 r{t[^>]*} ==> r{t.*}
+new syntax: >very<, MODIFIER>so<, >very|so<, r{*}>*<
+leave a space for SPEC, but not adjunct (use a special token @?)
+binary tree
 logging parsing process
-leave a space for SPEC, but not adjunct
     and binary tree printing issue
 problem of infinite loop
     X' -> X' ADJUNCT
