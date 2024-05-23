@@ -13,8 +13,8 @@ p2 -> p1 | b
 '''
 text1 = "<a>x</a><a>y</a><b>0</b>"
 
-parserDict = parserOfRules(rule1)
-tree = parserDict.ruleParser['p1'].parse(text1)
+# parserDict = parserOfRules(rule1)
+# tree = parserDict.ruleParser['p1'].parse(text1)
 #parserDict.singleEntry = p1 | p2
 """
 Use tree.ppstr() to get the string of the pretty-printting-string,
@@ -95,13 +95,32 @@ p1 -> a b
 r4_t1 = "<a>x1</a><c>x2</c>" #should fail
 parserDict = parserOfRules(test_rule4)
 r4_p1 = parserDict.ruleParser['p1']
-r4_p1.parse(r4_t1).pprint()
 
 test_regtok1 = """
 p1 -> r{.*}   #this receives any token
 """
 parserDict = parserOfRules(test_regtok1)
-parserDict.ruleParser['p1'].parse("<abc>xxx</abc>").pprint()
+# parserDict.ruleParser['p1'].parse("<abc>xxx</abc>").pprint()
+
+test_contentTerm = """
+p1 -> >ab|c<  # accept any pos token with content ab or c
+p2 -> MODIFIER>very|so< . # accept MODIFIER with content is 'very' or 'so'
+p3 -> r{ENTITY_.*}>abc<  
+"""
+parserDict = parserOfRules(test_contentTerm)
+# parserDict.ruleParser['p1'].parse('<gggg>ab</gggg>').pprint()
+# parserDict.ruleParser['p1'].parse('<hhh>c</hhh>').pprint()
+# parserDict.ruleParser['p2'].parse('<MODIFIER>very</MODIFIER>').pprint()
+# parserDict.ruleParser['p3'].parse('<ENTITY_person>abc</ENTITY_person>').pprint()
+
+
+test_placeholder = """
+p1 -> (a|@) b
+"""
+parserDict = parserOfRules(test_placeholder)
+parserDict.ruleParser['p1'].parse('<a>x</a><b>y</b>').pprint()
+parserDict.ruleParser['p1'].parse('<b>y</b>').pprint()
+
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree

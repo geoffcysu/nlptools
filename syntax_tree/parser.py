@@ -385,8 +385,8 @@ def _ruleTermToParser(pc:ParsingContext
             tokenOfPOS=lambda s: _tokenOfPos(s).map(lambda x:[x])
             ,ruleName=lambda s: pc.phraseParser(s).map(lambda x:[x])
             ,regexTerm=lambda s: _regexOnToken(s).map(lambda x:[x])
-            ,contentTerm=lambda p,c: _ContentDependentToken(p,c) #p,c are regex?
-            ,placeholder=lambda : Parser(parsy.success([SyntaxTree('')])) #should it be a TokenOfPos
+            ,contentTerm=lambda p,c: _ContentDependentToken(p,c).map(lambda x:[x])
+            ,placeholder=lambda : Parser(parsy.success([SyntaxTree(TokenOfPos('',''))]))
             ,alt=lambda ruleTerms:\
                     # should make the parsers parallel
                     # e.g., the parser `r->a b | c d` is reading either the

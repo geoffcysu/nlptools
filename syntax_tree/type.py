@@ -78,7 +78,7 @@ class RoseTree:
 
 
 class SyntaxTree(RoseTree):
-    content : Union[str,TokenOfPos]
+    content : Union[str,TokenOfPos] #str is for phrase
     children : list['SyntaxTree']
     parent : Optional['SyntaxTree']
     def __init__(self,content:Union[str,TokenOfPos], children:list['SyntaxTree'] = [], parent:Optional['SyntaxTree'] = None):
