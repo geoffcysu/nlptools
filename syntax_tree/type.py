@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence, Union, Optional
 from itertools import chain
+from treeart import binary_edge
 
 
 class TokenOfPos:
@@ -116,6 +117,31 @@ class SyntaxTree(RoseTree):
         return super().compactFormatStr(layerLength)
     def ppstr(self, *args):
         return self.compactFormatStr(*args)
+    
+    def _is_binarytree(self)->bool:
+        child_num = len(self.children)
+        if child_num == 0:
+            return True
+        elif child_num == 1 or child_num > 2:
+            return False
+        else:
+            return self.children[0]._is_binarytree() \
+                   and self.children[1]._is_binarytree()
+    
+    def bin_str(self):
+        def f(t:SyntaxTree)->str:
+            if t.children:
+                return binary_edge(str(t.content), f(t.children[0]), f(t.children[1]), align='center')
+            else:
+                return str(t.content)
+        return f(self) if self._is_binarytree() else ""
+
+
+
     def pprint(self, *args):
-        print(self.compactFormatStr(*args))
+        bin_str = self.bin_str()
+        if bin_str:
+            print(bin_str)
+        else:
+            print(self.compactFormatStr(*args))
     

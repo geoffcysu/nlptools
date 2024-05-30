@@ -118,9 +118,14 @@ test_placeholder = """
 p1 -> (a|@) b
 """
 parserDict = parserOfRules(test_placeholder)
-parserDict.ruleParser['p1'].parse('<a>x</a><b>y</b>').pprint()
-parserDict.ruleParser['p1'].parse('<b>y</b>').pprint()
+# parserDict.ruleParser['p1'].parse('<a>x</a><b>y</b>').pprint()
+# parserDict.ruleParser['p1'].parse('<b>y</b>').pprint()
 
+test_bintree = """
+p1 -> a p1 | b @
+"""
+parserDict = parserOfRules(test_bintree)
+parserDict.ruleParser['p1'].parse('<a>x</a><a>y</a><a>z</a><a>x</a><a>y</a><b>0</b>').pprint()
 
 #------------RoseTree example------------
 from syntax_tree.type import RoseTree
