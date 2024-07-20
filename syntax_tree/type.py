@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence, Union, Optional
 from itertools import chain
-from treeart import binary_edge
+from .treeart import binary_edge
 
 
 class TokenOfPos:

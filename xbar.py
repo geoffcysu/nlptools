@@ -21,6 +21,10 @@ problem of infinite loop
 
 """
 
+# <ENTITY_possessive>her</ENTITY_possessive>
+# <MODIFIER>beautiful</MODIFIER>
+# <ENTITY_noun>classmate</ENTITY_noun> 
+
 new_rules = """
 NP -> NP_SPEC? N'
 NP_SPEC -> DP
@@ -31,7 +35,7 @@ NP_ADJUNCT -> PP | AP
 N -> r{ENTITY_[^>]*} | LOCATION
 N_COMP -> NP
 
-DP -> D'
+DP -> (ENTITY_num | DP | @) D'
 D' -> D
 D  -> ENTITY_possessive
     | ENTITY_num
@@ -103,36 +107,40 @@ import json
 import re
 from requests import post
 
-with open("./account.info", "r", encoding="utf-8") as f:
-    accountDICT = json.load(f)
+# with open("./account.info", "r", encoding="utf-8") as f:
+#     accountDICT = json.load(f)
 
-url = "https://nlu.droidtown.co/Articut/API/"
-payload = {
-    "username": accountDICT["username"],
-    "api_key": accountDICT["apikey"],
-    "input_str": "My brother is John's classmate."
-}
+# url = "https://nlu.droidtown.co/Articut/API/"
+# payload = {
+#     "username": accountDICT["username"],
+#     "api_key": accountDICT["apikey"],
+#     "input_str": "My brother is John's classmate."
+# }
 
-resultDICT = post(url, json=payload).json()
-response = ''.join(resultDICT["result_pos"]) 
-pat = re.compile("<ENTITY_possessive>([^<]+)('[Ss])</ENTITY_possessive>")
-response = re.sub(pat, lambda m: "<ENTITY_noun>{}</ENTITY_noun><FUNC_determiner>{}</FUNC_determiner>".format(m.group(1), m.group(2)), response)
-#print(resultDICT)
-inputSTR = response.replace(" ","").replace(".", "")
-#print(inputSTR)
-print(payload["input_str"] + "\n")
+
+# Jonathan's work
+# resultDICT = post(url, json=payload).json()
+# response = ''.join(resultDICT["result_pos"]) 
+# pat = re.compile("<ENTITY_possessive>([^<]+)('[Ss])</ENTITY_possessive>")
+# response = re.sub(pat, lambda m: "<ENTITY_noun>{}</ENTITY_noun><FUNC_determiner>{}</FUNC_determiner>".format(m.group(1), m.group(2)), response)
+# #print(resultDICT)
+# inputSTR = response.replace(" ","").replace(".", "")
+# #print(inputSTR)
+# print(payload["input_str"] + "\n")
 
 #t1 = "<ENTITY_pronoun>He</ENTITY_pronoun><AUX>is</AUX><MODIFIER>so</MODIFIER><MODIFIER>envious</MODIFIER><FUNC_inner>of</FUNC_inner><ENTITY_possessive>his</ENTITY_possessive><ENTITY_pronoun>sister</ENTITY_pronoun>"
 #t2 = "<FUNC_determiner>The</FUNC_determiner><ENTITY_noun>dog</ENTITY_noun><AUX>is</AUX><ENTITY_possessive>my</ENTITY_possessive><ENTITY_noun>dog</ENTITY_noun>"
 
-test_VP = parserDict.ruleParser['VP']
-test_VP.parse(inputSTR).pprint()
+test_str = "ENTITY_possessive>her</ENTITY_possessive><MODIFIER>beautiful</MODIFIER><ENTITY_noun>classmate</ENTITY_noun>"
+
 
 #ic(parserDict.ruleParser['VP'].parse(t2))
 # Degree  -> MODIFIER>(very|so|quite)</MODIFIER>
 
 
 parserDict = parserOfRules(new_rules)
+test_DP = parserDict.ruleParser['DP']
+test_DP.parse(test_str).pprint()
 
 # t1 = "<ENTITY_pronoun>He</ENTITY_pronoun><AUX>is</AUX><Degree>so</Degree><MODIFIER>envious</MODIFIER><FUNC_inner>of</FUNC_inner><ENTITY_possessive>his</ENTITY_possessive><ENTITY_pronoun>sister</ENTITY_pronoun>"
 # t2 = "<ENTITY_pronoun>He</ENTITY_pronoun> <AUX>is</AUX> <MODIFIER>friendly</MODIFIER>"
