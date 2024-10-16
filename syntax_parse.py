@@ -126,7 +126,8 @@ def parse_VP(LightVP_comp, patDICT):
             return DetP
         
         except:
-            pprint("Cannot Find Predicate.")
+            print("--------------------------------------------------------------------------")
+            print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
             VP =  {
                 "LEFT": "∅",
                 "HEAD": "∅",
@@ -186,8 +187,11 @@ def parse_S(parseSTR):
     pprint(LightVP)
     
     VP = parse_VP(LightVP["COMP"], patDICT)
-    print("\n VP/ADJ PredicateP")
-    pprint(VP)
+    if list(VP.values()) == ["∅","∅","∅"]:
+        return "UNGRAMMATICAL SENTENCE."
+    else:
+        print("\n VP/ADJ PredicateP")
+        pprint(VP)
     
     ClsP = parse_ClsP(VP["COMP"], patDICT)
     print("\n ClsP")
@@ -201,7 +205,7 @@ def parse_S(parseSTR):
         "CP": CP,
         "ModP": ModP,
         "LightVP": LightVP,
-        "VP": VP,
+        "VP/PredP": VP,
         "ClsP": ClsP,
         "NP": NP
     }
@@ -209,12 +213,15 @@ def parse_S(parseSTR):
     return S
 
 if __name__ == '__main__':
-    inputSTR = "他很高"
+    inputSTR = "我高。"
     resultDICT = articut.parse(inputSTR, level="lv1")
     parseSTR = ''.join(resultDICT['result_pos'])
     pprint(parseSTR)
     
     S = parse_S(parseSTR)
+    print("\n")
+    print("--------------------------------------------------------------------------")
+    #S2 = parse_S(S["CP"]["LEFT"])
     #print("\n S")
     #pprint(S)
     
