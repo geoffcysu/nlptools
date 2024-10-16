@@ -26,6 +26,7 @@ def render_pat():
     Det_pat = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
     V_pat = re.compile("(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>)")
     Cls_pat =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
+    RC_pat = re.compile("(<FUNC_inner>的</FUNC_inner>)")
     N_pat = re.compile("(<ENTITY_(nounHead|nouny|noun|oov)>[^<]+</ENTITY_(nounHead|nouny|noun|oov)>)")
     
     patDICT = {
@@ -36,6 +37,7 @@ def render_pat():
         "Det_pat": Det_pat,
         "V_pat": V_pat,
         "Cls_pat": Cls_pat,
+        "RC_pat": RC_pat,
         "N_pat": N_pat
     }
     
@@ -153,11 +155,31 @@ def parse_ClsP(VP_comp, patDICT):
     
     return ClsP
 
+def parse_RC(ClsP_comp, patDICT):
+    RC_De = re.search(patDICT['RC_pat'], ClsP_comp).group(1)
+    RC_right = ClsP_comp.split(RC_De)[-1]
+    RC_left = ClsP_comp.split(RC_De)[0]    
+    
+    RC =  {
+        "LEFT": RC_left,
+        "HEAD": RC_De,
+        "RIGHT": RC_right
+    }    
+    
+    return RC    
+
 def parse_NP(ClsP_comp, patDICT):
     try:    
         N = re.search(patDICT['N_pat'], ClsP_comp).group(1)
-        NP_comp = ClsP_comp.split(N)[-1]
-        NP_left = ClsP_comp.split(N)[0]
+        try:
+            RC = parse_RC(ClsP_comp, patDICT)
+            N = RC["RIGHT"]
+            NP_comp = ClsP_comp.split(N)[-1]
+            NP_left = RC["LEFT"] + RC["HEAD"]
+        except:
+            NP_comp = ClsP_comp.split(N)[-1]
+            NP_left = ClsP_comp.split(N)[0]            
+            
     except:
         N = "∅"
         NP_comp = ClsP_comp.split(N)[-1]
@@ -197,6 +219,10 @@ def parse_S(parseSTR):
     print("\n ClsP")
     pprint(ClsP)
     
+    #RC = parse_RC(VP["COMP"], patDICT)
+    #print("\n RC")
+    #pprint(RC)    
+    
     NP = parse_NP(ClsP["COMP"], patDICT)
     print("\n NP")
     pprint(NP)
@@ -213,7 +239,7 @@ def parse_S(parseSTR):
     return S
 
 if __name__ == '__main__':
-    inputSTR = "我高。"
+    inputSTR = "我看到我很久沒見的朋友。"
     resultDICT = articut.parse(inputSTR, level="lv1")
     parseSTR = ''.join(resultDICT['result_pos'])
     pprint(parseSTR)
