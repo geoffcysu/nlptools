@@ -273,7 +273,20 @@ def parse_S(parseSTR):
     return S
 
 if __name__ == '__main__':
-    userINPUT = "我昨天吃了五碗飯。"
+    '''
+    These examples help understand the parsing process.
+    
+    我覺得說他可以被吃五碗他喜歡的飯。(It's a weird but I just want to display all the Ps.)
+    他可以吃五碗飯。(without a C)
+    他吃五碗飯。(without a Modal)
+    她參加比賽。(without a Classifier)
+    他很高。(without a Verb. But MC allows Det-Adj Predicate/VP Predicate.)
+    他跑得很快（VP without Complement NP but a "De" complement instead.）
+    他吃了他喜歡的零食。(RC）
+    他吃了五包他喜歡的零食。(RC and Classifier）
+    他白飯。(Ungrammatical)
+    '''
+    userINPUT = "我覺得說他可以被吃五碗他喜歡的飯，他可以吃五碗飯，他吃五碗飯，她參加比賽，他很高，他跑得很快，他吃了他喜歡的零食，他吃了五包他喜歡的零食，他白飯。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
