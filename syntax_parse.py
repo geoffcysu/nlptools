@@ -24,9 +24,11 @@ def render_pat():
     LightV_pat = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
     #Asp_pat = re.compile("<ASPECT>了</ASPECT>") I am not sure about this yet. Maybe a head-final structure.
     Det_pat = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
+    #Adv_pat = re.compile("<ModifierP>[^<]+(地)</ModifierP>")
     V_pat = re.compile("(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>)")
     Cls_pat =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
     RC_pat = re.compile("(<FUNC_inner>的</FUNC_inner>)")
+    De_Comp_pat = re.compile("(<FUNC_inner>得</FUNC_inner>)")
     N_pat = re.compile("(<ENTITY_(nounHead|nouny|noun|oov)>[^<]+</ENTITY_(nounHead|nouny|noun|oov)>)")
     
     patDICT = {
@@ -38,6 +40,7 @@ def render_pat():
         "V_pat": V_pat,
         "Cls_pat": Cls_pat,
         "RC_pat": RC_pat,
+        "De_Comp_pat": De_Comp_pat,
         "N_pat": N_pat
     }
     
@@ -193,12 +196,33 @@ def parse_NP(ClsP_comp, patDICT):
     
     return NP
 
+def parse_De_CompP(VP_comp, patDICT):
+    try:
+        De_Comp = re.search(patDICT['De_Comp_pat'], VP_comp).group(1)
+        De_CompP_comp = VP_comp.split(De_Comp)[-1]
+        De_CompP_left = VP_comp.split(De_Comp)[0]
+    except:
+        De_Comp = "∅"
+        De_CompP_comp = VP_comp
+        De_CompP_left = "∅"
+    
+    De_CompP =  {
+        "LEFT": De_CompP_left,
+        "HEAD": De_Comp,
+        "COMP": De_CompP_comp
+    }    
+    
+    return De_CompP    
+
 def parse_S(parseSTR):
     patDICT = render_pat()
     
     CP = parse_CP(parseSTR, patDICT)
     print("\n CP")
     pprint(CP)
+    
+    print("\n IP")
+    pprint(CP)    
     
     ModP = parse_ModP(CP["COMP"], patDICT)
     print("\n ModP")
@@ -216,16 +240,25 @@ def parse_S(parseSTR):
         pprint(VP)
     
     ClsP = parse_ClsP(VP["COMP"], patDICT)
-    print("\n ClsP")
-    pprint(ClsP)
-    
-    #RC = parse_RC(VP["COMP"], patDICT)
-    #print("\n RC")
-    #pprint(RC)    
+    if ClsP["HEAD"] != "∅":        
+        print("\n ClsP")
+        pprint(ClsP)
+    else:
+        pass
     
     NP = parse_NP(ClsP["COMP"], patDICT)
-    print("\n NP")
-    pprint(NP)
+    if NP["HEAD"] != "∅":
+        print("\n NP")
+        pprint(NP)
+    else:
+        pass    
+    
+    De_CompP = parse_De_CompP(VP["COMP"], patDICT)
+    if De_CompP["HEAD"] != "∅":
+        print("\n De_CompP")
+        pprint(De_CompP)
+    else:
+        pass     
     
     S = {
         "CP": CP,
@@ -233,13 +266,14 @@ def parse_S(parseSTR):
         "LightVP": LightVP,
         "VP/PredP": VP,
         "ClsP": ClsP,
-        "NP": NP
+        "NP": NP,
+        "De_CompP": De_CompP
     }
     
     return S
 
 if __name__ == '__main__':
-    userINPUT = "我看到兩個我很久沒見的朋友，我很開心。"
+    userINPUT = "我昨天吃了五碗飯。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
