@@ -239,14 +239,17 @@ def parse_S(parseSTR):
     return S
 
 if __name__ == '__main__':
-    inputSTR = "我看到我很久沒見的朋友。"
-    resultDICT = articut.parse(inputSTR, level="lv1")
-    parseSTR = ''.join(resultDICT['result_pos'])
-    pprint(parseSTR)
+    userINPUT = "我看到兩個我很久沒見的朋友，我很開心。"
+    inputLIST = userINPUT.split("，")
     
-    S = parse_S(parseSTR)
-    print("\n")
-    print("--------------------------------------------------------------------------")
+    for inputSTR in inputLIST:
+        resultDICT = articut.parse(inputSTR, level="lv1")
+        parseSTR = ''.join(resultDICT['result_pos'])
+        pprint(parseSTR)
+        
+        S = parse_S(parseSTR)
+        print("\n")
+        print("--------------------------------------------------------------------------")
     #S2 = parse_S(S["CP"]["LEFT"])
     #print("\n S")
     #pprint(S)
