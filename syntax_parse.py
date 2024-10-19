@@ -29,7 +29,7 @@ def render_pat():
     Cls_pat =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
     RC_pat = re.compile("(<FUNC_inner>的</FUNC_inner>)")
     De_Comp_pat = re.compile("(<FUNC_inner>得</FUNC_inner>)")
-    N_pat = re.compile("(<ENTITY_(nounHead|nouny|noun|oov)>[^<]+</ENTITY_(nounHead|nouny|noun|oov)>)")
+    N_pat = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)")
     
     patDICT = {
         "C_pat": C_pat,
@@ -273,6 +273,19 @@ def parse_S(parseSTR):
     
     return S
 
+def EPP_movement(treeDICT, patDICT):
+    if treeDICT["IP"]["LEFT"] == '' or treeDICT["IP"]["LEFT"] == '∅':
+        for max_proj, inter_proj in treeDICT.items():
+            if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
+                Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
+                treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                break
+        treeDICT["IP"]["LEFT"] = Subj_P
+    else:
+        pass
+    
+    return treeDICT
+
 if __name__ == '__main__':
     '''
     These examples help understand the parsing process.
@@ -287,7 +300,7 @@ if __name__ == '__main__':
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
     '''
-    userINPUT = "我同學的爸爸可以吃五碗好吃的飯。"
+    userINPUT = "我同學的爸爸吃五碗好吃的飯。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
@@ -300,6 +313,16 @@ if __name__ == '__main__':
         print("\n")
         print("--------------------------------------------------------------------------")
         print("Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
+        print("\n")
+        pprint(userINPUT)
+        EPP_mv = EPP_movement(S, patDICT)
+        print("\n Overt Subject")
+        print(EPP_mv["IP"]["LEFT"])
+        
+        print("\n IP")
+        pprint(EPP_mv["IP"])
+        print("\n VP/PredP")
+        pprint(EPP_mv["VP/PredP"])     
         
         #Subj = parse_NP(S["VP/PredP"]["LEFT"], patDICT)
         #pprint(Subj)
@@ -308,15 +331,23 @@ if __name__ == '__main__':
         
         #pprint(S)
         
-        for max_proj, inter_proj in S.items():
-            if inter_proj.get("LEFT") != '∅':
-                Subj_P = parse_NP(S[max_proj]["LEFT"], patDICT)
-                break
+        #Subj_P = parse_NP(S["IP"]["COMP"], patDICT)
+        #pprint(Subj_P)
         
-        S["IP"]["LEFT"] = Subj_P
         
-        print("\n")
-        pprint(S)
+        #for max_proj, inter_proj in S.items():
+            #if inter_proj.get("LEFT") != '∅':
+                #Subj_P = parse_NP(S[max_proj]["LEFT"], patDICT)
+                #break
+        
+        #S["IP"]["LEFT"] = Subj_P
+        
+        #pprint(userINPUT)
+        #print("\n")
+        #print("IP")
+        #pprint(S["IP"])
+        #print("VP/PredP")
+        #pprint(S["VP/PredP"])
 
     '''
     I hope the output goes like:
