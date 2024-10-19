@@ -262,6 +262,7 @@ def parse_S(parseSTR):
     
     S = {
         "CP": CP,
+        "IP": CP,
         "ModP": ModP,
         "LightVP": LightVP,
         "VP/PredP": VP,
@@ -286,10 +287,11 @@ if __name__ == '__main__':
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
     '''
-    userINPUT = "我覺得說他可以被吃五碗他喜歡的飯，他可以吃五碗飯，他吃五碗飯，她參加比賽，他很高，他跑得很快，他吃了他喜歡的零食，他吃了五包他喜歡的零食，他白飯。"
+    userINPUT = "我同學的爸爸可以吃五碗好吃的飯。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
+        patDICT = render_pat()
         resultDICT = articut.parse(inputSTR, level="lv1")
         parseSTR = ''.join(resultDICT['result_pos'])
         pprint(parseSTR)
@@ -297,10 +299,25 @@ if __name__ == '__main__':
         S = parse_S(parseSTR)
         print("\n")
         print("--------------------------------------------------------------------------")
-    #S2 = parse_S(S["CP"]["LEFT"])
-    #print("\n S")
-    #pprint(S)
-    
+        print("Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
+        
+        #Subj = parse_NP(S["VP/PredP"]["LEFT"], patDICT)
+        #pprint(Subj)
+        #print("\n")
+        #print("--------------------------------------------------------------------------")
+        
+        #pprint(S)
+        
+        for max_proj, inter_proj in S.items():
+            if inter_proj.get("LEFT") != '∅':
+                Subj_P = parse_NP(S[max_proj]["LEFT"], patDICT)
+                break
+        
+        S["IP"]["LEFT"] = Subj_P
+        
+        print("\n")
+        pprint(S)
+
     '''
     I hope the output goes like:
     
