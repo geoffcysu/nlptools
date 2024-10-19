@@ -317,7 +317,7 @@ if __name__ == '__main__':
         pprint(userINPUT)
         EPP_mv = EPP_movement(S, patDICT)
         print("\n Overt Subject")
-        print(EPP_mv["IP"]["LEFT"])
+        pprint(EPP_mv["IP"]["LEFT"])
         
         print("\n IP")
         pprint(EPP_mv["IP"])
