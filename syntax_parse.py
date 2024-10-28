@@ -20,12 +20,13 @@ def render_pat():
     The patterns for heads and funciton parameters will be continuously updated to align with linguistic studies.
     '''
     C_pat = re.compile("</ACTION_verb>(<ACTION_verb>說</ACTION_verb>)")
-    Mod_pat =  re.compile("(<MODAL>[^<]+</MODAL>)")
+    Mod_pat =  re.compile("(<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>)")
+    Neg_pat = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>)")
     LightV_pat = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
     #Asp_pat = re.compile("<ASPECT>了</ASPECT>") I am not sure about this yet. Maybe a head-final structure.
     Det_pat = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
     #Adv_pat = re.compile("<ModifierP>[^<]+(地)</ModifierP>")
-    V_pat = re.compile("(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>)")
+    V_pat = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>|<AUX>是</AUX>|<FUNC_inner>在</FUNC_inner>)(?!<FUNC_inner>的</FUNC_inner>)")
     Cls_pat =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
     RC_pat = re.compile("(<FUNC_inner>的</FUNC_inner>)")
     De_Comp_pat = re.compile("(<FUNC_inner>得</FUNC_inner>)")
@@ -34,6 +35,7 @@ def render_pat():
     patDICT = {
         "C_pat": C_pat,
         "Mod_pat": Mod_pat,
+        "Neg_pat": Neg_pat, 
         "LightV_pat": LightV_pat,
         #"Asp_pat": Asp_pat,
         "Det_pat": Det_pat,
@@ -69,15 +71,24 @@ def parse_CP(parseSTR, patDICT):
     
     return CP 
 
-def parse_ModP(CP_comp, patDICT):
+def parse_IP(CP_comp, patDICT):
+    IP = {
+        "LEFT": "",
+        "HEAD": "∅",
+        "COMP": CP_comp
+    }
+    
+    return IP
+
+def parse_ModP(IP_comp, patDICT):
     try:        
-        Mod = re.search(patDICT['Mod_pat'], CP_comp).group(1)
-        ModP_comp = CP_comp.split(Mod)[-1]
-        ModP_left = CP_comp.split(Mod)[0]
+        Mod = re.search(patDICT['Mod_pat'], IP_comp).group(1)
+        ModP_comp = IP_comp.split(Mod)[-1]
+        ModP_left = IP_comp.split(Mod)[0]
     except:
-        Mod = "∅"
-        ModP_comp = CP_comp
-        ModP_left = "∅"      
+        Mod = ""
+        ModP_comp = IP_comp
+        ModP_left = ""      
     
     ModP =  {
         "LEFT": ModP_left,
@@ -87,14 +98,32 @@ def parse_ModP(CP_comp, patDICT):
     
     return ModP
 
-def parse_LightVP(ModP_comp, patDICT):
+def parse_NegP(ModP_comp, patDICT):
     try:
-        LightV = re.search(patDICT['LightV_pat'], ModP_comp).group(1)
-        LightVP_comp = ModP_comp.split(LightV)[-1]
-        LightVP_left = ModP_comp.split(LightV)[0]           
+        Neg = re.search(patDICT['Neg_pat'], ModP_comp).group(1)
+        NegP_comp = ModP_comp.split(Neg)[-1]
+        NegP_left = ModP_comp.split(Neg)[0]           
+    except:
+        Neg = ""
+        NegP_comp = ModP_comp
+        NegP_left = ""
+        
+    NegP =  {
+        "LEFT": NegP_left,
+        "HEAD": Neg,
+        "COMP": NegP_comp
+    }    
+    
+    return NegP    
+
+def parse_LightVP(NegP_comp, patDICT):
+    try:
+        LightV = re.search(patDICT['LightV_pat'], NegP_comp).group(1)
+        LightVP_comp = NegP_comp.split(LightV)[-1]
+        LightVP_left = NegP_comp.split(LightV)[0]           
     except:
         LightV = "∅"
-        LightVP_comp = ModP_comp
+        LightVP_comp = NegP_comp
         LightVP_left = "∅"
         
     LightVP =  {
@@ -105,7 +134,7 @@ def parse_LightVP(ModP_comp, patDICT):
     
     return LightVP
 
-def parse_VP(LightVP_comp, patDICT):
+def parse_VP(LightVP_comp, NegP, patDICT):
     try:
         V = re.search(patDICT['V_pat'], LightVP_comp).group(1)
         VP_comp = LightVP_comp.split(V)[-1]
@@ -131,14 +160,20 @@ def parse_VP(LightVP_comp, patDICT):
             return DetP
         
         except:
-            print("--------------------------------------------------------------------------")
-            print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
-            VP =  {
-                "LEFT": "∅",
-                "HEAD": "∅",
-                "COMP": "∅"
-            }    
-            return VP            
+            if NegP["HEAD"] == "":                
+                print("--------------------------------------------------------------------------")
+                print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
+                VP =  {
+                    "LEFT": "",
+                    "HEAD": "",
+                    "COMP": ""
+                }    
+                return VP
+            
+            else:
+                VP = NegP
+                
+                return VP
             
 def parse_ClsP(VP_comp, patDICT):
     try:
@@ -159,34 +194,37 @@ def parse_ClsP(VP_comp, patDICT):
     return ClsP
 
 def parse_RC(ClsP_comp, patDICT):
-    RC_De = re.search(patDICT['RC_pat'], ClsP_comp).group(1)
-    RC_right = ClsP_comp.split(RC_De)[-1]
-    RC_left = ClsP_comp.split(RC_De)[0]    
-    
-    RC =  {
-        "LEFT": RC_left,
-        "HEAD": RC_De,
-        "RIGHT": RC_right
-    }    
-    
-    return RC    
-
-def parse_NP(ClsP_comp, patDICT):
-    try:    
-        N = re.search(patDICT['N_pat'], ClsP_comp).group(1)
-        try:
-            RC = parse_RC(ClsP_comp, patDICT)
-            N = RC["RIGHT"]
-            NP_comp = ClsP_comp.split(N)[-1]
-            NP_left = RC["LEFT"] + RC["HEAD"]
-        except:
-            NP_comp = ClsP_comp.split(N)[-1]
-            NP_left = ClsP_comp.split(N)[0]            
-            
+    try:            
+        RC_De = re.search(patDICT['RC_pat'], ClsP_comp).group(1)
+        RC_right = ClsP_comp.split(RC_De)[-1]
+        RC_left = ClsP_comp.split(RC_De)[0]
+        
+        RC =  {
+            "LEFT": RC_left,
+            "HEAD": RC_De,
+            "RIGHT": RC_right
+        }    
+        
+        return RC        
     except:
-        N = "∅"
+        return None
+    
+def parse_NP(ClsP_comp, patDICT):
+    RC = parse_RC(ClsP_comp, patDICT)
+    if RC == None:
+        try:
+            N = re.search(patDICT['N_pat'], ClsP_comp).group(1)
+            NP_comp = ClsP_comp.split(N)[-1]
+            NP_left = ClsP_comp.split(N)[0]
+        except:
+            N = "∅"
+            NP_comp = ClsP_comp.split(N)[-1]
+            NP_left = "∅"            
+    
+    else:
+        N = RC["RIGHT"]
         NP_comp = ClsP_comp.split(N)[-1]
-        NP_left = "∅"   
+        NP_left = RC["LEFT"] + RC["HEAD"]
     
     NP =  {
         "LEFT": NP_left,
@@ -221,20 +259,34 @@ def parse_S(parseSTR):
     print("\n CP")
     pprint(CP)
     
+    IP = parse_IP(CP["COMP"], patDICT)
     print("\n IP")
-    pprint(CP)    
+    pprint(IP)    
     
-    ModP = parse_ModP(CP["COMP"], patDICT)
-    print("\n ModP")
-    pprint(ModP)
+    ModP = parse_ModP(IP["COMP"], patDICT)
+    if ModP["HEAD"] == "":
+        pass
+    else:    
+        print("\n ModP")
+        pprint(ModP)
+        
+    NegP = parse_NegP(ModP["COMP"], patDICT)
+    if NegP["HEAD"] == "":
+        pass
+    else:    
+        print("\n NegP")
+        pprint(NegP)    
     
-    LightVP = parse_LightVP(ModP["COMP"], patDICT)
+    LightVP = parse_LightVP(NegP["COMP"], patDICT)
     print("\n LightVP")
     pprint(LightVP)
     
-    VP = parse_VP(LightVP["COMP"], patDICT)
-    if list(VP.values()) == ["∅","∅","∅"]:
+    VP = parse_VP(LightVP["COMP"], NegP, patDICT)
+    if VP["HEAD"] == "" and NegP["HEAD"] == "":
         return "UNGRAMMATICAL SENTENCE."
+    elif VP["HEAD"] == "" and NegP["HEAD"] != "":
+        print("\n VP/ADJ PredicateP")
+        pprint(NegP)      
     else:
         print("\n VP/ADJ PredicateP")
         pprint(VP)
@@ -262,8 +314,9 @@ def parse_S(parseSTR):
     
     S = {
         "CP": CP,
-        "IP": CP,
+        "IP": IP,
         "ModP": ModP,
+        "NegP": NegP,
         "LightVP": LightVP,
         "VP/PredP": VP,
         "ClsP": ClsP,
@@ -274,13 +327,18 @@ def parse_S(parseSTR):
     return S
 
 def EPP_movement(treeDICT, patDICT):
-    if treeDICT["IP"]["LEFT"] == '' or treeDICT["IP"]["LEFT"] == '∅':
+    if treeDICT["IP"]["LEFT"] == '':
         for max_proj, inter_proj in treeDICT.items():
             if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
                 Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
+                treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>")
                 treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
                 break
-        treeDICT["IP"]["LEFT"] = Subj_P
+        try:
+            treeDICT["IP"]["LEFT"] = Subj_P
+        except UnboundLocalError:
+            treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
+            
     else:
         pass
     
@@ -300,7 +358,7 @@ if __name__ == '__main__':
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
     '''
-    userINPUT = "我同學的爸爸吃五碗好吃的飯。"
+    userINPUT = "大家都說她長得很好看。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
