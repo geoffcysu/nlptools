@@ -358,7 +358,7 @@ if __name__ == '__main__':
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
     '''
-    userINPUT = "我同學的弟弟喜歡我哥哥的女朋友。"
+    userINPUT = "我同學"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
@@ -385,7 +385,7 @@ if __name__ == '__main__':
             pprint(EPP_mv["VP/PredP"])     
         
         except:
-            print("\n Ungrammatical")
+            print("\n Cannot Find [+EPP].")
         
         #Subj = parse_NP(S["VP/PredP"]["LEFT"], patDICT)
         #pprint(Subj)
