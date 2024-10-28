@@ -358,7 +358,7 @@ if __name__ == '__main__':
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
     '''
-    userINPUT = "大家都說她長得很好看。"
+    userINPUT = "我同學的弟弟喜歡我哥哥的女朋友。"
     inputLIST = userINPUT.split("，")
     
     for inputSTR in inputLIST:
@@ -370,17 +370,22 @@ if __name__ == '__main__':
         S = parse_S(parseSTR)
         print("\n")
         print("--------------------------------------------------------------------------")
-        print("Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
+        print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
         print("\n")
         pprint(userINPUT)
-        EPP_mv = EPP_movement(S, patDICT)
-        print("\n Overt Subject")
-        pprint(EPP_mv["IP"]["LEFT"])
         
-        print("\n IP")
-        pprint(EPP_mv["IP"])
-        print("\n VP/PredP")
-        pprint(EPP_mv["VP/PredP"])     
+        try:
+            EPP_mv = EPP_movement(S, patDICT)
+            print("\n Overt Subject")
+            pprint(EPP_mv["IP"]["LEFT"])
+            
+            print("\n IP")
+            pprint(EPP_mv["IP"])
+            print("\n VP/PredP")
+            pprint(EPP_mv["VP/PredP"])     
+        
+        except:
+            print("\n Ungrammatical")
         
         #Subj = parse_NP(S["VP/PredP"]["LEFT"], patDICT)
         #pprint(Subj)
