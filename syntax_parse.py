@@ -163,6 +163,7 @@ def parse_VP(LightVP_comp, NegP, patDICT):
             if NegP["HEAD"] == "":                
                 print("--------------------------------------------------------------------------")
                 print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
+                print("--------------------------------------------------------------------------")
                 VP =  {
                     "LEFT": "",
                     "HEAD": "",
@@ -240,9 +241,9 @@ def parse_De_CompP(VP_comp, patDICT):
         De_CompP_comp = VP_comp.split(De_Comp)[-1]
         De_CompP_left = VP_comp.split(De_Comp)[0]
     except:
-        De_Comp = "∅"
+        De_Comp = ""
         De_CompP_comp = VP_comp
-        De_CompP_left = "∅"
+        De_CompP_left = ""
     
     De_CompP =  {
         "LEFT": De_CompP_left,
@@ -256,63 +257,16 @@ def parse_S(parseSTR):
     patDICT = render_pat()
     
     CP = parse_CP(parseSTR, patDICT)
-    print("\n CP")
-    pprint(CP)
-    
     IP = parse_IP(CP["COMP"], patDICT)
-    print("\n IP")
-    pprint(IP)    
-    
     ModP = parse_ModP(IP["COMP"], patDICT)
-    if ModP["HEAD"] == "":
-        pass
-    else:    
-        print("\n ModP")
-        pprint(ModP)
-        
     NegP = parse_NegP(ModP["COMP"], patDICT)
-    if NegP["HEAD"] == "":
-        pass
-    else:    
-        print("\n NegP")
-        pprint(NegP)    
-    
     LightVP = parse_LightVP(NegP["COMP"], patDICT)
-    print("\n LightVP")
-    pprint(LightVP)
-    
     VP = parse_VP(LightVP["COMP"], NegP, patDICT)
-    if VP["HEAD"] == "" and NegP["HEAD"] == "":
-        return "UNGRAMMATICAL SENTENCE."
-    elif VP["HEAD"] == "" and NegP["HEAD"] != "":
-        print("\n VP/ADJ PredicateP")
-        pprint(NegP)      
-    else:
-        print("\n VP/ADJ PredicateP")
-        pprint(VP)
-    
     ClsP = parse_ClsP(VP["COMP"], patDICT)
-    if ClsP["HEAD"] != "∅":        
-        print("\n ClsP")
-        pprint(ClsP)
-    else:
-        pass
-    
     NP = parse_NP(ClsP["COMP"], patDICT)
-    if NP["HEAD"] != "∅":
-        print("\n NP")
-        pprint(NP)
-    else:
-        pass    
-    
     De_CompP = parse_De_CompP(VP["COMP"], patDICT)
-    if De_CompP["HEAD"] != "∅":
-        print("\n De_CompP")
-        pprint(De_CompP)
-    else:
-        pass     
     
-    S = {
+    treeDICT = {
         "CP": CP,
         "IP": IP,
         "ModP": ModP,
@@ -322,28 +276,91 @@ def parse_S(parseSTR):
         "ClsP": ClsP,
         "NP": NP,
         "De_CompP": De_CompP
-    }
+    }    
     
-    return S
-
+    #pprint(treeDICT)
+    
+    return treeDICT
+    
 def EPP_movement(treeDICT, patDICT):
     if treeDICT["IP"]["LEFT"] == '':
         for max_proj, inter_proj in treeDICT.items():
+            if max_proj == "CP":
+                continue
+            
             if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
                 Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
-                treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>")
+                treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
                 treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
                 break
         try:
             treeDICT["IP"]["LEFT"] = Subj_P
         except UnboundLocalError:
             treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
-            
+        
+        altLIST = [treeDICT["IP"], treeDICT[max_proj]]
     else:
-        pass
+        altLIST = []
     
-    return treeDICT
+    return treeDICT, altLIST
 
+def output_tree(treeDICT):
+    try:
+            
+        print("\n CP")
+        pprint(treeDICT["CP"])
+        
+        print("\n IP")
+        pprint(treeDICT["IP"])
+        
+        if treeDICT["ModP"]["HEAD"] == "":
+            pass
+        else:    
+            print("\n ModP")
+            pprint(treeDICT["ModP"])
+            
+        if treeDICT["NegP"]["HEAD"] == "":
+            pass
+        else:    
+            print("\n NegP")
+            pprint(treeDICT["NegP"])
+            
+        print("\n LightVP")
+        pprint(treeDICT["LightVP"])
+            
+        if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":
+            pass
+        elif treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] != "":
+            print("\n VP/ADJ PredicateP")
+            pprint(treeDICT["NegP"])      
+        else:
+            print("\n VP/ADJ PredicateP")
+            pprint(treeDICT["VP/PredP"])
+        
+        if treeDICT["ClsP"]["HEAD"] != "∅":        
+            print("\n ClsP")
+            pprint(treeDICT["ClsP"])
+        else:
+            pass
+        
+        if treeDICT["NP"]["HEAD"] != "∅":
+            print("\n NP")
+            pprint(treeDICT["NP"])
+        else:
+            pass    
+        
+        if treeDICT["De_CompP"]["HEAD"] != "":
+            print("\n De_CompP")
+            pprint(treeDICT["De_CompP"])
+        else:
+            pass
+        
+        return True
+    
+    except Exception as e:
+        print("\n", e)
+        raise 
+        
 if __name__ == '__main__':
     '''
     These examples help understand the parsing process.
@@ -353,65 +370,61 @@ if __name__ == '__main__':
     他吃五碗飯。(without a Modal)
     她參加比賽。(without a Classifier)
     他很高。(without a Verb. But MC allows Det-Adj Predicate/VP Predicate.)
-    他跑得很快（VP without Complement NP but a "De" complement instead.）
+    他跑得很快。（VP without Complement NP but a "De" complement instead.）
     他吃了他喜歡的零食。(RC）
     他吃了五包他喜歡的零食。(RC and Classifier）
     他白飯。(Ungrammatical)
+    樹上沒有葉子。(Neg)
     '''
-    userINPUT = "我同學"
-    inputLIST = userINPUT.split("，")
+    userINPUT = "我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
+    inputLIST = userINPUT.split("。")
     
+    pos_pat = "<[^>]+>[^<]+</[^>]+"
+
     for inputSTR in inputLIST:
         patDICT = render_pat()
-        resultDICT = articut.parse(inputSTR, level="lv1")
-        parseSTR = ''.join(resultDICT['result_pos'])
-        pprint(parseSTR)
-        
-        S = parse_S(parseSTR)
-        print("\n")
-        print("--------------------------------------------------------------------------")
-        print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
-        print("\n")
-        pprint(userINPUT)
-        
+        if len(inputSTR) <= 1:
+            pprint("{} Is Not A Valid Input.".format(inputSTR))
+            print("\n")
+            print("================================================================================================================================")
+            print("\n\n")
+            continue
+        else:
+            print("userINPUT: {}".format(inputSTR))
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            resultDICT = articut.parse(inputSTR, level="lv1")
+            parseSTR = ''.join(resultDICT['result_pos'])
+            wordLIST = re.findall(r'<[^>]+>[^<]+</[^>]+>', parseSTR)
+            print("Articut Result:\n")
+            pprint(wordLIST)
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            
+            treeDICT = parse_S(parseSTR)
+            print("D-structure:")
+            output_tree(treeDICT)
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
+            #pprint(inputSTR)
+            
         try:
-            EPP_mv = EPP_movement(S, patDICT)
-            print("\n Overt Subject")
-            pprint(EPP_mv["IP"]["LEFT"])
+            EPP_mv = EPP_movement(treeDICT, patDICT)
+            #pprint(EPP_mv)
+            print("\n Overt Subject:")
+            pprint(EPP_mv[1][0]["LEFT"])
             
             print("\n IP")
-            pprint(EPP_mv["IP"])
-            print("\n VP/PredP")
-            pprint(EPP_mv["VP/PredP"])     
+            pprint(EPP_mv[1][0])
+            print("\n θ Theta PositionP")
+            pprint(EPP_mv[1][1])
+            print("================================================================================================================================")
+            print("\n\n")
         
         except:
             print("\n Cannot Find [+EPP].")
-        
-        #Subj = parse_NP(S["VP/PredP"]["LEFT"], patDICT)
-        #pprint(Subj)
-        #print("\n")
-        #print("--------------------------------------------------------------------------")
-        
-        #pprint(S)
-        
-        #Subj_P = parse_NP(S["IP"]["COMP"], patDICT)
-        #pprint(Subj_P)
-        
-        
-        #for max_proj, inter_proj in S.items():
-            #if inter_proj.get("LEFT") != '∅':
-                #Subj_P = parse_NP(S[max_proj]["LEFT"], patDICT)
-                #break
-        
-        #S["IP"]["LEFT"] = Subj_P
-        
-        #pprint(userINPUT)
-        #print("\n")
-        #print("IP")
-        #pprint(S["IP"])
-        #print("VP/PredP")
-        #pprint(S["VP/PredP"])
-
+            print("================================================================================================================================")
+            print("\n\n")
+            
+            
     '''
     I hope the output goes like:
     
