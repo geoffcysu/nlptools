@@ -161,9 +161,9 @@ def parse_VP(LightVP_comp, NegP, patDICT):
         
         except:
             if NegP["HEAD"] == "":                
-                print("--------------------------------------------------------------------------")
-                print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
-                print("--------------------------------------------------------------------------")
+                #print("--------------------------------------------------------------------------")
+                #print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
+                #print("--------------------------------------------------------------------------")
                 VP =  {
                     "LEFT": "",
                     "HEAD": "",
@@ -283,83 +283,93 @@ def parse_S(parseSTR):
     return treeDICT
     
 def EPP_movement(treeDICT, patDICT):
-    if treeDICT["IP"]["LEFT"] == '':
-        for max_proj, inter_proj in treeDICT.items():
-            if max_proj == "CP":
-                continue
-            
-            if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
-                Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
-                treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
-                treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
-                break
-        try:
-            treeDICT["IP"]["LEFT"] = Subj_P
-        except UnboundLocalError:
-            treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
-        
-        altLIST = [treeDICT["IP"], treeDICT[max_proj]]
-    else:
-        altLIST = []
+    if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
+        return False
     
-    return treeDICT, altLIST
+    else:            
+        if treeDICT["IP"]["LEFT"] == '':
+            for max_proj, inter_proj in treeDICT.items():
+                if max_proj == "CP":
+                    continue
+                
+                if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
+                    Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
+                    treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
+                    treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                    break
+            try:
+                treeDICT["IP"]["LEFT"] = Subj_P
+            except UnboundLocalError:
+                treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
+            
+            altLIST = [treeDICT["IP"], treeDICT[max_proj]]
+        else:
+            altLIST = []
+        
+        return treeDICT, altLIST
 
 def output_tree(treeDICT):
-    try:
-            
-        print("\n CP")
-        pprint(treeDICT["CP"])
+    if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
+        print("--------------------------------------------------------------------------------------------------------------------------------")
+        print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
         
-        print("\n IP")
-        pprint(treeDICT["IP"])
-        
-        if treeDICT["ModP"]["HEAD"] == "":
-            pass
-        else:    
-            print("\n ModP")
-            pprint(treeDICT["ModP"])
-            
-        if treeDICT["NegP"]["HEAD"] == "":
-            pass
-        else:    
-            print("\n NegP")
-            pprint(treeDICT["NegP"])
-            
-        print("\n LightVP")
-        pprint(treeDICT["LightVP"])
-            
-        if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":
-            pass
-        elif treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] != "":
-            print("\n VP/ADJ PredicateP")
-            pprint(treeDICT["NegP"])      
-        else:
-            print("\n VP/ADJ PredicateP")
-            pprint(treeDICT["VP/PredP"])
-        
-        if treeDICT["ClsP"]["HEAD"] != "∅":        
-            print("\n ClsP")
-            pprint(treeDICT["ClsP"])
-        else:
-            pass
-        
-        if treeDICT["NP"]["HEAD"] != "∅":
-            print("\n NP")
-            pprint(treeDICT["NP"])
-        else:
-            pass    
-        
-        if treeDICT["De_CompP"]["HEAD"] != "":
-            print("\n De_CompP")
-            pprint(treeDICT["De_CompP"])
-        else:
-            pass
-        
-        return True
+        return False
     
-    except Exception as e:
-        print("\n", e)
-        raise 
+    else:        
+        try:
+            print("\n CP")
+            pprint(treeDICT["CP"])
+            
+            print("\n IP")
+            pprint(treeDICT["IP"])
+            
+            if treeDICT["ModP"]["HEAD"] == "":
+                pass
+            else:    
+                print("\n ModP")
+                pprint(treeDICT["ModP"])
+                
+            if treeDICT["NegP"]["HEAD"] == "":
+                pass
+            else:    
+                print("\n NegP")
+                pprint(treeDICT["NegP"])
+                
+            print("\n LightVP")
+            pprint(treeDICT["LightVP"])
+                
+            if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":
+                pass
+            elif treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] != "":
+                print("\n VP/ADJ PredicateP")
+                pprint(treeDICT["NegP"])      
+            else:
+                print("\n VP/ADJ PredicateP")
+                pprint(treeDICT["VP/PredP"])
+            
+            if treeDICT["ClsP"]["HEAD"] != "∅":        
+                print("\n ClsP")
+                pprint(treeDICT["ClsP"])
+            else:
+                pass
+            
+            if treeDICT["NP"]["HEAD"] != "∅":
+                print("\n NP")
+                pprint(treeDICT["NP"])
+            else:
+                pass    
+            
+            if treeDICT["De_CompP"]["HEAD"] != "":
+                print("\n De_CompP")
+                pprint(treeDICT["De_CompP"])
+            else:
+                pass
+            
+            return True
+    
+        except Exception as e:
+            print("\n", e)
+            raise 
         
 if __name__ == '__main__':
     '''
@@ -384,46 +394,54 @@ if __name__ == '__main__':
     for inputSTR in inputLIST:
         patDICT = render_pat()
         if len(inputSTR) <= 1:
+            print("*************************************************************START-PARSE**************************************************************")
             pprint("{} Is Not A Valid Input.".format(inputSTR))
             print("\n")
-            print("================================================================================================================================")
+            print("*************************************************************END OF PARSE**************************************************************")
             print("\n\n")
             continue
         else:
             print("userINPUT: {}".format(inputSTR))
-            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("*************************************************************START-PARSE**************************************************************")
             resultDICT = articut.parse(inputSTR, level="lv1")
             parseSTR = ''.join(resultDICT['result_pos'])
             wordLIST = re.findall(r'<[^>]+>[^<]+</[^>]+>', parseSTR)
             print("Articut Result:\n")
             pprint(wordLIST)
-            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("--------------------------------------------------------------------------------------------------------------------------------")
             
             treeDICT = parse_S(parseSTR)
             print("D-structure:")
             output_tree(treeDICT)
-            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-            print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")
-            #pprint(inputSTR)
             
         try:
             EPP_mv = EPP_movement(treeDICT, patDICT)
-            #pprint(EPP_mv)
-            print("\n Overt Subject:")
-            pprint(EPP_mv[1][0]["LEFT"])
+            #pprint(inputSTR)            
+            if EPP_mv != False:
+                print("--------------------------------------------------------------------------------------------------------------------------------")
+                print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")                
+                #pprint(EPP_mv)
+                print("\n Overt Subject:")
+                pprint(EPP_mv[1][0]["LEFT"])
+                
+                print("\n IP")
+                pprint(EPP_mv[1][0])
+                print("\n θ Theta PositionP")
+                pprint(EPP_mv[1][1])
+                print("================================================================================================================================")
+                print("*************************************************************SEND TO LF**************************************************************")
+                print("\n\n\n\n\n\n\n\n\n\n")
             
-            print("\n IP")
-            pprint(EPP_mv[1][0])
-            print("\n θ Theta PositionP")
-            pprint(EPP_mv[1][1])
-            print("================================================================================================================================")
-            print("\n\n")
-        
+            else:
+                print("================================================================================================================================")
+                print("*************************************************************SEND TO LF**************************************************************")
+                print("\n\n\n\n\n\n\n\n\n\n")
+            
         except:
             print("\n Cannot Find [+EPP].")
             print("================================================================================================================================")
-            print("\n\n")
-            
+            print("*************************************************************SEND TO LF**************************************************************")
+            print("\n\n\n\n\n\n\n\n\n\n")           
             
     '''
     I hope the output goes like:
