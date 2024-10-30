@@ -5,6 +5,13 @@ import json
 import re
 import os
 
+'''
+10/30 Problem To Be Solved
+1. How to order the Ps in the treeDICT.
+2. The Subject Problem. Place it back to theta position THAN probe and move it to SpecTP.
+
+'''
+
 with open("account.info", "r", encoding="utf-8") as f:
     accountDICT = json.load(f)
     
@@ -304,10 +311,25 @@ def parse_S(parseSTR):
         "De_CompP": De_CompP
     }    
     
-    #pprint(treeDICT)
-    
     return treeDICT
-    
+
+#def replace_Subj(treeDICT, patDICT): # Put the Subj back to Theta Position
+    #if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
+        #return False
+    #else:
+        #if treeDICT["VP/PredP"]["LEFT"] == '':
+            #for max_proj, inter_proj in treeDICT.items():
+                #if max_proj == "CP":
+                    #continue
+                #else:
+                    #if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
+                        #print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
+                        #Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
+                        #treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
+                        #treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                        #break                    
+        #return True
+
 def EPP_movement(treeDICT, patDICT):
     if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
         return False
@@ -315,18 +337,19 @@ def EPP_movement(treeDICT, patDICT):
     else:            
         if treeDICT["IP"]["LEFT"] == '':
             for max_proj, inter_proj in treeDICT.items():
-                if max_proj in{"CP","ClsP", "De_CompP", "NP"}:
+                if max_proj != "LightVP" and max_proj != "VP/PredP":
                     continue
-                if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
-                    print("!!! {}\n{}".format(max_proj, treeDICT[max_proj]))
-                    Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
-                    treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
-                    treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
-                    break
+                else:
+                    if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
+                        print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
+                        Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
+                        treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
+                        treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                        break
             try:
                 treeDICT["IP"]["LEFT"] = Subj_P
             except UnboundLocalError:
-                print("!!! {}\n{}".format(max_proj, treeDICT[max_proj]))
+                print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
                 treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
             
             altLIST = [treeDICT["IP"], treeDICT[max_proj]]
@@ -416,7 +439,7 @@ if __name__ == '__main__':
     他白飯。(Ungrammatical)
     樹上沒有葉子。(Neg)
     '''
-    userINPUT = "吃五碗。"
+    userINPUT = "他吃了五碗。"
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     inputLIST = userINPUT.split("。")
     
