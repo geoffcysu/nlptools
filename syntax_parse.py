@@ -160,10 +160,7 @@ def parse_VP(LightVP_comp, NegP, patDICT):
             return DetP
         
         except:
-            if NegP["HEAD"] == "":                
-                #print("--------------------------------------------------------------------------")
-                #print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
-                #print("--------------------------------------------------------------------------")
+            if NegP["HEAD"] == "":
                 VP =  {
                     "LEFT": "",
                     "HEAD": "",
@@ -182,9 +179,9 @@ def parse_ClsP(VP_comp, patDICT):
         ClsP_comp = VP_comp.split(Cls)[-1]
         ClsP_left = VP_comp.split(Cls)[0]
     except:
-        Cls = "∅"
+        Cls = ""
         ClsP_comp = VP_comp
-        ClsP_left = "∅"
+        ClsP_left = ""
     
     ClsP =  {
         "LEFT": ClsP_left,
@@ -210,21 +207,50 @@ def parse_RC(ClsP_comp, patDICT):
     except:
         return None
     
-def parse_NP(ClsP_comp, patDICT):
-    RC = parse_RC(ClsP_comp, patDICT)
+def parse_NP(ClsP, patDICT):
+    RC = parse_RC(ClsP["COMP"], patDICT)
     if RC == None:
         try:
-            N = re.search(patDICT['N_pat'], ClsP_comp).group(1)
-            NP_comp = ClsP_comp.split(N)[-1]
-            NP_left = ClsP_comp.split(N)[0]
+            N = re.search(patDICT['N_pat'], ClsP["COMP"]).group(1)
+            NP_comp = ClsP["COMP"].split(N)[-1]
+            NP_left = ClsP["COMP"].split(N)[0]
         except:
-            N = "∅"
-            NP_comp = ClsP_comp.split(N)[-1]
-            NP_left = "∅"            
+            if ClsP["HEAD"] == "":
+                N = ""
+            else:
+                N = "∅"
+                
+            NP_comp = ""
+            NP_left = ""            
     
     else:
         N = RC["RIGHT"]
-        NP_comp = ClsP_comp.split(N)[-1]
+        NP_comp = ClsP["COMP"].split(N)[-1]
+        NP_left = RC["LEFT"] + RC["HEAD"]
+    
+    NP =  {
+        "LEFT": NP_left,
+        "HEAD": N,
+        "COMP": NP_comp
+    }    
+    
+    return NP
+
+def parse_Subj(thetaSTR, patDICT):
+    RC = parse_RC(thetaSTR, patDICT)
+    if RC == None:
+        try:
+            N = re.search(patDICT['N_pat'], thetaSTR).group(1)
+            NP_comp = thetaSTR.split(N)[-1]
+            NP_left = thetaSTR.split(N)[0]
+        except:
+            N = ""
+            NP_comp = ""
+            NP_left = ""            
+    
+    else:
+        N = RC["RIGHT"]
+        NP_comp = thetaSTR.split(N)[-1]
         NP_left = RC["LEFT"] + RC["HEAD"]
     
     NP =  {
@@ -263,7 +289,7 @@ def parse_S(parseSTR):
     LightVP = parse_LightVP(NegP["COMP"], patDICT)
     VP = parse_VP(LightVP["COMP"], NegP, patDICT)
     ClsP = parse_ClsP(VP["COMP"], patDICT)
-    NP = parse_NP(ClsP["COMP"], patDICT)
+    NP = parse_NP(ClsP, patDICT)
     De_CompP = parse_De_CompP(VP["COMP"], patDICT)
     
     treeDICT = {
@@ -289,17 +315,18 @@ def EPP_movement(treeDICT, patDICT):
     else:            
         if treeDICT["IP"]["LEFT"] == '':
             for max_proj, inter_proj in treeDICT.items():
-                if max_proj == "CP":
+                if max_proj in{"CP","ClsP", "De_CompP", "NP"}:
                     continue
-                
                 if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
-                    Subj_P = parse_NP(treeDICT[max_proj]["LEFT"], patDICT)
+                    print("!!! {}\n{}".format(max_proj, treeDICT[max_proj]))
+                    Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
                     treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
                     treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
                     break
             try:
                 treeDICT["IP"]["LEFT"] = Subj_P
             except UnboundLocalError:
+                print("!!! {}\n{}".format(max_proj, treeDICT[max_proj]))
                 treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
             
             altLIST = [treeDICT["IP"], treeDICT[max_proj]]
@@ -347,17 +374,20 @@ def output_tree(treeDICT):
                 print("\n VP/ADJ PredicateP")
                 pprint(treeDICT["VP/PredP"])
             
-            if treeDICT["ClsP"]["HEAD"] != "∅":        
+            if treeDICT["ClsP"]["HEAD"] != "":        
                 print("\n ClsP")
                 pprint(treeDICT["ClsP"])
             else:
                 pass
             
-            if treeDICT["NP"]["HEAD"] != "∅":
-                print("\n NP")
+            if treeDICT["NP"]["HEAD"] == "":
+                pass
+            elif treeDICT["NP"]["HEAD"] == "∅":
+                print("\n NP [Is The Object Elided ?]")
                 pprint(treeDICT["NP"])
             else:
-                pass    
+                print("\n NP")
+                pprint(treeDICT["NP"])                    
             
             if treeDICT["De_CompP"]["HEAD"] != "":
                 print("\n De_CompP")
@@ -386,7 +416,8 @@ if __name__ == '__main__':
     他白飯。(Ungrammatical)
     樹上沒有葉子。(Neg)
     '''
-    userINPUT = "我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
+    userINPUT = "吃五碗。"
+    #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     inputLIST = userINPUT.split("。")
     
     pos_pat = "<[^>]+>[^<]+</[^>]+"
@@ -394,11 +425,6 @@ if __name__ == '__main__':
     for inputSTR in inputLIST:
         patDICT = render_pat()
         if len(inputSTR) <= 1:
-            print("*************************************************************START-PARSE**************************************************************")
-            pprint("{} Is Not A Valid Input.".format(inputSTR))
-            print("\n")
-            print("*************************************************************END OF PARSE**************************************************************")
-            print("\n\n")
             continue
         else:
             print("userINPUT: {}".format(inputSTR))
