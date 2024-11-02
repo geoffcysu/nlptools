@@ -131,7 +131,7 @@ def parse_LightVP(NegP_comp, patDICT):
     except:
         LightV = "∅"
         LightVP_comp = NegP_comp
-        LightVP_left = "∅"
+        LightVP_left = ""
         
     LightVP =  {
         "LEFT": LightVP_left,
@@ -311,51 +311,45 @@ def parse_S(parseSTR):
         "De_CompP": De_CompP
     }    
     
+    if treeDICT["LightVP"]["LEFT"] == "":
+        treeDICT["LightVP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
+        
     return treeDICT
 
-#def replace_Subj(treeDICT, patDICT): # Put the Subj back to Theta Position
-    #if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
-        #return False
-    #else:
-        #if treeDICT["VP/PredP"]["LEFT"] == '':
-            #for max_proj, inter_proj in treeDICT.items():
-                #if max_proj == "CP":
-                    #continue
-                #else:
-                    #if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
-                        #print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
-                        #Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
-                        #treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
-                        #treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
-                        #break                    
-        #return True
+'''
+"吃五碗"
+Move the Subj back to vP before EPP probing.
+The process did not find any possible Subj so it leaves De_compP as theta position.
+'''
 
 def EPP_movement(treeDICT, patDICT):
-    if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":    
+    if treeDICT["VP/PredP"]["HEAD"] == "" and treeDICT["NegP"]["HEAD"] == "":
         return False
     
-    else:            
+    else:
         if treeDICT["IP"]["LEFT"] == '':
             for max_proj, inter_proj in treeDICT.items():
                 if max_proj != "LightVP" and max_proj != "VP/PredP":
                     continue
                 else:
-                    if inter_proj.get("LEFT") != '' and inter_proj.get("LEFT") != '∅':
-                        print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
-                        Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
-                        treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
-                        treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
-                        break
-            try:
-                treeDICT["IP"]["LEFT"] = Subj_P
-            except UnboundLocalError:
-                print("!!! {} {}\n{}".format(max_proj, inter_proj, treeDICT[max_proj]))
-                treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
-            
+                    if inter_proj.get("LEFT") != "":
+                        if treeDICT[max_proj]["LEFT"] == "<Pro>Pro_Support</Pro>":
+                            treeDICT["IP"]["COMP"] = "<Pro>Pro_Support</Pro>" + treeDICT["IP"]["COMP"]
+                            treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                            treeDICT["IP"]["LEFT"] = "<Pro>Pro_Support</Pro>"
+                            break
+                        else:
+                            Subj_P = parse_Subj(treeDICT[max_proj]["LEFT"], patDICT)
+                            treeDICT["IP"]["COMP"] = treeDICT["IP"]["COMP"].replace("{}".format(treeDICT[max_proj]["LEFT"]), "<trace>t</trace>", 1)
+                            treeDICT[max_proj]["LEFT"] = "<trace>t</trace>"
+                            treeDICT["IP"]["LEFT"] = Subj_P
+                            break
+                    
             altLIST = [treeDICT["IP"], treeDICT[max_proj]]
+                    
         else:
-            altLIST = []
-        
+            altLIST = [treeDICT["IP"], treeDICT["IP"]]
+            
         return treeDICT, altLIST
 
 def output_tree(treeDICT):
@@ -439,7 +433,7 @@ if __name__ == '__main__':
     他白飯。(Ungrammatical)
     樹上沒有葉子。(Neg)
     '''
-    userINPUT = "他吃了五碗。"
+    userINPUT = "吃五碗。"
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     inputLIST = userINPUT.split("。")
     
@@ -464,8 +458,7 @@ if __name__ == '__main__':
             output_tree(treeDICT)
             
         try:
-            EPP_mv = EPP_movement(treeDICT, patDICT)
-            #pprint(inputSTR)            
+            EPP_mv = EPP_movement(treeDICT, patDICT)            
             if EPP_mv != False:
                 print("--------------------------------------------------------------------------------------------------------------------------------")
                 print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")                
@@ -478,17 +471,20 @@ if __name__ == '__main__':
                 print("\n θ Theta PositionP")
                 pprint(EPP_mv[1][1])
                 print("================================================================================================================================")
+                print("\n")
                 print("*************************************************************SEND TO LF**************************************************************")
                 print("\n\n\n\n\n\n\n\n\n\n")
             
             else:
                 print("================================================================================================================================")
+                print("\n")
                 print("*************************************************************SEND TO LF**************************************************************")
                 print("\n\n\n\n\n\n\n\n\n\n")
             
         except:
             print("\n Cannot Find [+EPP].")
             print("================================================================================================================================")
+            print("\n")
             print("*************************************************************SEND TO LF**************************************************************")
             print("\n\n\n\n\n\n\n\n\n\n")           
             
