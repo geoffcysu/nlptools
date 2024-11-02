@@ -80,6 +80,15 @@ VP[吃]
         └──comp:NP[飯]
                 ├──left:""
                 └──comp:""
+
+                
+                       ┌──comp:""
+        ┌────comp:N------head:飯
+        │          └──left:[.........]
+┌──comp:ClsP-head:五碗
+│       └────left:""
+VP[吃]
+└──left:他
 """
 ex1 = VP(head = "吃"
         ,left = "他"
@@ -92,6 +101,10 @@ ex1 = VP(head = "吃"
                     )
         )
 
+def swap(t1:Tree, field1:str, t2:Tree, field2:str):
+    temp = t1.__dict__[field1]
+    t1.__dict__[field1] = t2.__dict__[field2]
+    t2.__dict__[field2] = temp
 
 if __name__ == '__main__':
-    print(ex1)
+    pass

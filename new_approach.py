@@ -92,7 +92,7 @@ def split_pos(pat:re.Pattern, src:str) -> Optional[Tuple[str,str,str]]:
 
     head_span = m.span()
     return (src[0:head_span[0]], #the string before pat
-            m.group(0),          #the string that matches pat
+            m.group(1),          #the string that matches pat
             src[head_span[1]:])  #the string after pat
 
 
@@ -224,13 +224,17 @@ def parse_NP(ClsP_comp: str) -> NP:
     if rc is None:
         split_n = split_pos(HeadPatterns.N_pat, ClsP_comp)
         if split_n is None:
+            #我吃五碗
+            #
             return NP(left = "∅"
                      ,head = "∅"
                      ,comp = ClsP_comp #!? not sure
                      )
         else:
+            #我吃五碗飯
             return NP(*split_n)
     else:
+        #xx的yy
         return NP(
             left = rc.left + rc.head,
             head = rc.right,
@@ -253,16 +257,16 @@ def parse_De_CompP(VP_comp: str) -> De_CompP:
 
 """
 equivalent to writing:
-CP -> ? c_pat IP
+CP -> ? !c_pat IP
     | ø ø IP
 IP -> ø ModP
-ModP -> ? mod_pat NegP
+ModP -> ? !mod_pat NegP
     | "" "" NegP
 NegP -> ? neg_pat LightVP
     | "" "" LightVP
 LightVP -> ? lightV_pat (VP | DetP | [pred_on_neg])
     | ø ø (VP | DetP | [pred_on_neg])
-VP -> ? v_pat ClsP
+VP -> ? v_pat (CP | ClsP)
 DetP -> ? det_pat ClsP
 ClsP -> ? cls_pat NP
     | ø ø NP
