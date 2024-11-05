@@ -1,7 +1,8 @@
 from ArticutAPI import Articut
 from dataclasses import dataclass
 from pprint import pprint
-from typing import Optional, Tuple, Callable, Union, TypeVar, Generic, Any
+from typing import Optional, Tuple, Callable, Union, TypeVar, Generic, Any,\
+                   Literal
 
 import json
 import re
@@ -68,12 +69,47 @@ class HeadPatterns(Static):
     N_pat: re.Pattern = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)")
     "(\<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^\<]+\</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)"
 
-@dataclass
-class Tree:
-    left: str
-    head: str
-    comp: 'Union[str,Tree,list[str]]'
 
+class Tree:
+    left: 'Union[str,Tree,list[str]]'
+    head: str
+    comp: 'Union[str,Tree]'
+    head_type: Literal['initial', 'final'] = 'initial'
+
+    parent: 'Optional[Tree]' = None
+
+    def __init__(self,l: 'Optional[Union[str,Tree,list[str]]]' = None
+                     ,h: Optional[str] = None
+                     ,c: 'Optional[Union[str,Tree]]' = None
+                     ,*
+                     ,head_type: Literal['initial', 'final'] = 'initial'
+                     ,left: 'Optional[Union[str,Tree,list[str]]]' = None
+                     ,head: Optional[str] = None
+                     ,comp: 'Optional[Union[str,Tree]]' = None
+                     ):
+        """
+        The constructor can only be used in two ways: 
+        1. `Tree(l,h,c)` when `head_type='initial`
+        2. `Tree(left=.., head=.., comp=..)`
+        Two methods cannot be mixed.
+        """
+        if (not (l is None or h is None or c is None))\
+           and (left is None and head is None and comp is None)\
+           and head_type=='initial':
+            #Tree(left,head,comp) when head_type=='initial'
+            #DOES NOT ACCEPT Tree(l,h,c, head_type='final')
+            self.left, self.head, self.comp = l, h, c
+        elif (l is None and h is None and c is None)\
+             and (not (left is None or head is None or comp is None)):
+            #Tree(head=...,left=...,comp=..., head_type=...)
+            self.left, self.head, self.comp = left, head, comp
+        else:
+            raise Exception('Wrong use of the Tree constructor. ')
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name,value)
+        if name in ['comp','left'] and isinstance(value,Tree):
+            value.parent = self
 
 @dataclass
 class Adjunct:
