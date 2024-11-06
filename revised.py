@@ -405,7 +405,7 @@ class EPP_movement():
     target_pos: str
     
 
-def ex_EPP_movement(treeDICT: dict) -> EPP_movement:    
+def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):    
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
         return None
     else:
@@ -416,18 +416,39 @@ def ex_EPP_movement(treeDICT: dict) -> EPP_movement:
                         subj = Tree(left="",
                                     head="",
                                     comp=treeDICT[max_proj].left)
-                        return EPP_movement(target_phrase = parse_NP(subj, False)
+                        treeDICT["IP"].left = parse_NP(subj, False)
+                        treeDICT["IP"].comp = treeDICT["IP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
+                        treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                        treeDICT[max_proj].left = "<trace>Subj_trace</trace>"
+                        try:    
+                            for trace_pos in ["LightVP","AspP","NegP","ModP"]:
+                                if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
+                                    treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                        except KeyError:
+                            continue
+                        
+                        return (EPP_movement(target_phrase = parse_NP(subj, False)
                                             , original_pos = max_proj + "_left"
                                             ,target_pos = "IP_left"
-                                            )
+                                            ), 
+                                treeDICT)
                 except KeyError:
                     continue
             else:
-                treeDICT["LightVP"].left = "<Pro>Pro_Support</Pro>"
-                return EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
+                treeDICT["IP"].left = "<Pro>Pro_Support</Pro>"
+                treeDICT["IP"].comp = "<trace>Subj_trace</trace>" + treeDICT["IP"].comp
+                treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                for trace_pos in ["LightVP","AspP","NegP","ModP"]:
+                    try:    
+                        if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
+                            treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                    except KeyError:
+                        continue
+                return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
                                     , original_pos = "LightVP_left"
                                     ,target_pos = "IP_left"
-                                    )                
+                                    ),
+                        treeDICT)
 
 
 def output_tree(treeDICT: dict):
@@ -504,21 +525,22 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我跟你說我喜歡的同學被騙了五張卡。"
+    inputSTR: int = "他喜歡的同學跑得很快。"
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
     #parseSTR = parseLIST[0]
-        pprint(parseSTR)
+        print("*InputSTR:{}".format(inputSTR))
         treeDICT = parse_S(parseSTR)
         output_tree(treeDICT)
     
     print("\n")
-        
-    pprint(ex_EPP_movement(treeDICT))
-    
-    #print("\n")
-    #print("\n")
+    mvd_tree = ex_EPP_movement(treeDICT)
+    print("*Narrow Syntax Operations:")
+    pprint(mvd_tree[0])
+    print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
+    print("\n")
+    output_tree(mvd_tree[1])
     
     #EPP_mv = EPP_movement(treeDICT)
     #output_tree(EPP_mv)
