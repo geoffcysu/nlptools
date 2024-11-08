@@ -194,6 +194,15 @@ def parse_NegP(ModP_comp: str) -> NegP:
 class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 Some reference for AspP, FYI. :)
     pass 
 
+type HeadType = Literal['initial', 'final']
+asp_patterns = [
+    re.compile("(</ACTION_verb>(<ASPECT>[過了著]+</ASPECT>)"),
+    # "<ENTITY_pronoun>我</ENTITY_pronoun><ACTION_verb>吃</ACTION_verb><ASPECT>過</ASPECT><ENTITY_oov>飯</ENTITY_oov>"
+    re.compile("(<ASPECT>[在]</ASPECT>)<ACTION_verb>"),
+    # "<ENTITY_pronoun>我</ENTITY_pronoun><ASPECT>在</ASPECT><ACTION_verb>吃飯</ACTION_verb>"
+    re.compile("<ACTION_verb>[^<]+([過了著])</ACTION_verb>)")
+]
+
 def parse_AspP(NegP_comp: str) -> AspP:
     split = split_pos(HeadPatterns.Asp_pat, NegP_comp)
     if split is None:
