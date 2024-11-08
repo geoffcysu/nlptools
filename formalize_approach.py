@@ -411,6 +411,11 @@ def parse_S(parseSTR: str) -> dict:
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
                                  treeDICT["AspP"].left[lightv_index + len(treeDICT["LightVP"].head):])
+        
+    '''
+    from #419 to 431 is just a dumb way to get rid of the problem you mentioned 11/8 06:41.
+    It works for all scenarios I can think of but still, it should be optimized.
+    '''
 
     tLightVP = parse_LightVP(tAspP.comp)
     tVP = parse_VP(tLightVP.comp, tNegP)
@@ -553,7 +558,7 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "五個同學昨天吃了五碗飯。" 
+    inputSTR: int = "五個同學昨天在修理五碗飯。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
