@@ -53,7 +53,10 @@ class HeadPatterns(Static):
 
     #Adv_pat = re.compile("<ModifierP>[^<]+(地)</ModifierP>")
 
-    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>|<AUX>是</AUX>|<FUNC_inner>在</FUNC_inner>)(?!<FUNC_inner>的</FUNC_inner>)")
+    P_pat: re.Pattern = re.compile("(<FUNC_inner>[從在]</FUNC_inner>)") #I did not know how to parse 在...裡面 yet.
+    "(<FUNC_inner>[從在]</FUNC_inner>)"
+    
+    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>|<AUX>是</AUX>)(?!<FUNC_inner>的</FUNC_inner>)")
     "(\<(ACTION_verb|VerbP)>[^\<]+\</(ACTION_verb|VerbP)>)"
 
     Cls_pat: re.Pattern =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
@@ -218,6 +221,9 @@ class VP(Tree):
 class DegP(Tree):
     pass
 
+class PP(Tree):
+    pass
+
 def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
     split = split_pos(HeadPatterns.V_pat, LightVP_comp)
     #pprint(split)
@@ -227,6 +233,10 @@ def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
     split = split_pos(HeadPatterns.Deg_pat, LightVP_comp)
     if split:
         return DegP(*split)
+    
+    split = split_pos(HeadPatterns.P_pat, LightVP_comp)
+    if split:
+        return PP(*split)
 
     if NegP.head == "":
         return VP(left = ""
@@ -490,8 +500,7 @@ class verb_raising():
     target_pos: str
     
 def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
-    key_list = treeDICT.keys()
-    if "AspP" in key_list and "VP/PredP" in key_list:
+    if treeDICT["AspP"].head != "" and treeDICT["VP/PredP"].head != "":
         target_phrase = treeDICT["VP/PredP"].head
         if "在" in treeDICT["AspP"].head:
             treeDICT["AspP"].head = treeDICT["AspP"].head + treeDICT["VP/PredP"].head
@@ -506,7 +515,6 @@ def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
                                     ),
                 treeDICT)
     else:
-        pprint(treeDICT.keys())
         return None
 
 def output_tree(treeDICT: dict):
@@ -583,7 +591,7 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我昨天可能在修理汽車。" 
+    inputSTR: int = "我在台北了。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
@@ -596,17 +604,20 @@ if __name__ == '__main__':
     print("\n")
     print("*Narrow Syntax Operations:")
     EPP_tree = ex_EPP_movement(treeDICT)
-    pprint(EPP_tree[0])
-    print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
-    print("\n")
-    output_tree(EPP_tree[1])
-    print("\n")
-    
-    vraise_tree = ex_verb_raising(EPP_tree[1])
-    pprint(vraise_tree[0])
-    print("\n")
-    output_tree(vraise_tree[1])
-    
+    vraise_tree = ex_verb_raising(treeDICT)
+    if EPP_tree != None:            
+        pprint(EPP_tree[0])
+        print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
+        print("\n")
+        output_tree(EPP_tree[1])
+        
+        if vraise_tree != None:
+            vraise_tree = ex_verb_raising(EPP_tree[1])
+            print("\n")            
+            pprint(vraise_tree[0])
+            print("\n")
+            output_tree(vraise_tree[1])        
+        
     '''
     These examples help understand the parsing process.
 
