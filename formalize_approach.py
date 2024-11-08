@@ -439,6 +439,15 @@ def parse_S(parseSTR: str) -> dict:
     treeDICT["NP"] = tNP
     treeDICT["De_CompP"] = tDe_CompP
     
+    # SFP 了 should be at CP.Right. I will place it in CP.left for now.
+    for max_proj in ['De_CompP', 'NP', 'ClsP', 'VP/PredP', 'LightVP', 'AspP', 'NegP', 'ModP', 'IP', 'CP']:
+        if treeDICT[max_proj].head != "" and treeDICT[max_proj].comp.endswith("<ASPECT>了</ASPECT>"):
+            treeDICT["CP"].left = treeDICT["CP"].left + "<ASPECT>了</ASPECT>"
+            treeDICT[max_proj].comp = treeDICT[max_proj].comp[:len(treeDICT[max_proj].comp)-len("<ASPECT>了</ASPECT>")]
+            break
+        else:
+            continue
+    
     return treeDICT
 
 @dataclass
@@ -591,7 +600,7 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我在台北了。" 
+    inputSTR: int = "我吃了。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
