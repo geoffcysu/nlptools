@@ -483,6 +483,31 @@ def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):
                                     ),
                         treeDICT)
 
+@dataclass
+class verb_raising():
+    target_phrase: str
+    original_pos: str
+    target_pos: str
+    
+def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
+    key_list = treeDICT.keys()
+    if "AspP" in key_list and "VP/PredP" in key_list:
+        target_phrase = treeDICT["VP/PredP"].head
+        if "在" in treeDICT["AspP"].head:
+            treeDICT["AspP"].head = treeDICT["AspP"].head + treeDICT["VP/PredP"].head
+        else: 
+            treeDICT["AspP"].head = treeDICT["VP/PredP"].head + treeDICT["AspP"].head
+        
+        treeDICT["VP/PredP"].head = treeDICT["VP/PredP"].head.replace(target_phrase, "<trace>V_trace</trace>")
+        
+        return (verb_raising(target_phrase = target_phrase 
+                                    , original_pos = "VP_head"
+                                    ,target_pos = "AspP_head"
+                                    ),
+                treeDICT)
+    else:
+        pprint(treeDICT.keys())
+        return None
 
 def output_tree(treeDICT: dict):
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":    
@@ -569,15 +594,18 @@ if __name__ == '__main__':
         output_tree(treeDICT)
     
     print("\n")
-    mvd_tree = ex_EPP_movement(treeDICT)
     print("*Narrow Syntax Operations:")
-    pprint(mvd_tree[0])
+    EPP_tree = ex_EPP_movement(treeDICT)
+    pprint(EPP_tree[0])
     print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
     print("\n")
-    output_tree(mvd_tree[1])
+    output_tree(EPP_tree[1])
+    print("\n")
     
-    #EPP_mv = EPP_movement(treeDICT)
-    #output_tree(EPP_mv)
+    vraise_tree = ex_verb_raising(EPP_tree[1])
+    pprint(vraise_tree[0])
+    print("\n")
+    output_tree(vraise_tree[1])
     
     '''
     These examples help understand the parsing process.
