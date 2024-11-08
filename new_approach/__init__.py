@@ -39,6 +39,8 @@ class Tree:
         if isinstance(self.comp, Tree): 
             yield from self.comp.__printTree(prefix = prefix + _space + "     ") 
 
+    def __printTreeLR(self) -> Generator[str,None,None]:
+        ...
 
     def pstr(self) -> str:
         return (f"{type(self).__name__}[{self.head}]\n"+
@@ -82,14 +84,103 @@ VP[吃]
                 └──comp:""
 
                 
-                       ┌──comp:""
-        ┌────comp:N------head:飯
-        │          └──left:[.........]
-┌──comp:ClsP-head:五碗
-│       └────left:""
-VP[吃]
-└──left:他
+                 ┌────""
+         ┌─NP────┴───飯
+         │  └─......
+ ┌─ClsP─五碗
+ │  └─""
+VP───吃
+ └─他
+                 ┌────comp:""
+         ┌─NP────┴───head:飯
+         │  └─left:......
+ ┌─ClsP─head:五碗
+ │  └─left:""
+VP───head:吃
+ └─left:他
+               
+
+# full NP
+
+              ┌──""
+         ┌──N'┴─飯
+    ┌──N'──香香的
+ ┌─N'─軟軟的
+NP──""
+              ┌──comp:""
+         ┌──N'┴────N:飯
+    ┌──N'┴─adjt:香香的
+ ┌─N'─adjt:軟軟的
+NP──spec:""
+
+       ┌───────""
+NP─────┴──────飯
+ └─軟軟的,香香的
+       ┌───────comp:""
+NP─────┴──────head:飯
+ └─left:軟軟的,香香的
+
+# AspP example and movement
+
+input = "被騙了五千元"
+
+        ┌────────────────────────了
+        │              ┌─◁ 五千元
+        │       ┌──VP──┴─騙
+        │       │   └─""
+  ┌─AspP┴LightVP┴被
+  │  │    └─""
+  │  └─""
+IP─""
+ └─""
+
+                       ┌─◁ 五千元
+        ┌─了           │
+        │       ┌──VP──┴─騙
+        │       │   └─""
+  ┌─AspP┴LightVP┴被
+  │  │    └─""
+  │  └─""
+IP─""
+ └─""
+             ┌──────────────────────comp:了
+             │            ┌──comp◁ 五千元
+             │  ┌──comp:VP───head:騙
+             │  │        └──left:""
+  ┌─comp:AspP┴LightVP-head:被
+  │       │    └─left""
+  │       └─left:""
+IP─head:""
+ └─left:""
+        ┌───────────────────────< >
+        │          ┌────◁ 五千元 ║
+  ┌─AspP┴LightVP-VP──騙了<═══════╝
+  │  │    │       └─""
+  │  │    └─被
+  │  └─""
+IP─""
+ └─""
+
 """
+sss = """
+        ┌─────────────────────了
+        │          ┌──◁ 五千元
+  ┌─AspP┴LightVP-VP──騙
+  │  │    │       └─""
+  │  │    └─被
+  │  └─""
+IP─""
+ └─""
+        ┌───────────────────────< >
+        │          ┌────◁ 五千元 ║
+  ┌─AspP┴LightVP-VP──騙了<═══════╝
+  │  │    │       └─""
+  │  │    └─被
+  │  └─""
+IP─""
+ └─""
+"""
+print(sss)
 ex1 = VP(head = "吃"
         ,left = "他"
         ,comp = ClsP(head = "五碗"
