@@ -65,7 +65,7 @@ class HeadPatterns(Static):
     De_Comp_pat: re.Pattern = re.compile("(<FUNC_inner>得</FUNC_inner>)")
     "(\<FUNC_inner>得\</FUNC_inner>)"
 
-    N_pat: re.Pattern = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)")
+    N_pat: re.Pattern = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)+")
     "(\<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^\<]+\</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)"
 
 @dataclass
@@ -187,7 +187,7 @@ def parse_AspP(NegP_comp: str) -> AspP:
         elif split[0].endswith(">") == False and split[1].startswith("</ACTION_verb>") == True:
             return AspP(left = split[0] + "</ACTION_verb>"
                         ,head = split[1][len("<ACTION_verb>") + 1:]
-                        ,comp = "<ACTION_verb>" + split[2]
+                        ,comp = split[2]
             )
         elif split[1].endswith("</ACTION_verb>") == True and split[1].startswith("<ACTION_verb>") == True:
             return AspP(left = split[0] + split[1][:len(split[1])-15:] + split[1][len(split[1])-14:]
@@ -220,6 +220,7 @@ class DegP(Tree):
 
 def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
     split = split_pos(HeadPatterns.V_pat, LightVP_comp)
+    #pprint(split)
     if split:
         return VP(*split)
 
@@ -271,6 +272,19 @@ issue here about parsing NP?
 def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
     rc = parse_RC(ClsP.comp)
     if rc is None:
+        '''
+        here's a new sample for the n_head
+        suppose N_COMP will always be ""
+        when we find N + N (e.g., 我同學)
+        instead of always getting the first 我
+        i add line 284 285 as an example to capture longer nouns seperated by Articut
+        
+        p.s. Articut "我" will only be parsed as possessive when followed by a pronoun.
+        when its possessive, it will be viewed as NP.left, which is perfectly correct.
+        While its not, we might just see all the N+N as an N instead
+        '''
+        n_match = re.finditer(HeadPatterns.N_pat, ClsP.comp)
+        n_head = ''.join(match.group(0) for match in n_match)
         split_n = split_pos(HeadPatterns.N_pat, ClsP.comp)
         if checkCLS == True and split_n is None:
             if ClsP.head != "":
@@ -286,7 +300,10 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
         else:
                             
             #我吃五碗飯
-            return NP(*split_n)
+            return NP(left = split_n[0],
+                      head = n_head,
+                      comp = ""
+                      )
     else:
         #xx的yy
         return NP(
@@ -383,11 +400,10 @@ def parse_S(parseSTR: str) -> dict:
     '''
     if treeDICT["VP/PredP"].head in treeDICT["AspP"].left:
         v_index = treeDICT["AspP"].left.rfind(treeDICT["VP/PredP"].head)
-        treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index +len(treeDICT["VP/PredP"].head)] +
+        treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:v_index] +
                                  treeDICT["AspP"].left[v_index +len(treeDICT["VP/PredP"].head):])
-        
         
     if treeDICT["LightVP"].head in treeDICT["AspP"].left:
         lightv_index = treeDICT["AspP"].left.rfind(treeDICT["LightVP"].head)
@@ -396,6 +412,18 @@ def parse_S(parseSTR: str) -> dict:
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
                                  treeDICT["AspP"].left[lightv_index + len(treeDICT["LightVP"].head):])
 
+    tLightVP = parse_LightVP(tAspP.comp)
+    tVP = parse_VP(tLightVP.comp, tNegP)
+    tClsP = parse_ClsP(tVP.comp)
+    tNP = parse_NP(tClsP, True)
+    tDe_CompP = parse_De_CompP(tVP.comp)
+    
+    treeDICT["LightVP"] = tLightVP
+    treeDICT["VP/PredP"] = tVP
+    treeDICT["ClsP"] = tClsP
+    treeDICT["NP"] = tNP
+    treeDICT["De_CompP"] = tDe_CompP
+    
     return treeDICT
 
 @dataclass
@@ -506,7 +534,7 @@ def output_tree(treeDICT: dict):
             if treeDICT["NP"].head == "":
                 pass
             elif treeDICT["NP"].head == "∅":
-                print("\n [NP: Is The Object Elided ?]")
+                print("\n [NP: Is There An Elided NP?]")
                 pprint(treeDICT["NP"])
             else:
                 print("\n [NP]:")
@@ -525,7 +553,8 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "他喜歡的同學跑得很快。"
+    inputSTR: int = "五個同學昨天吃了五碗飯。" 
+    
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
