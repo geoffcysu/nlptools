@@ -452,7 +452,7 @@ def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):
                         treeDICT["IP"].left = parse_NP(subj, False)
                         treeDICT["IP"].comp = treeDICT["IP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
                         treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
-                        treeDICT[max_proj].left = "<trace>Subj_trace</trace>"
+                        treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["IP"].left.left + treeDICT["IP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
                         try:    
                             for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                                 if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
@@ -558,7 +558,7 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "五個同學昨天在修理五碗飯。" 
+    inputSTR: int = "我昨天可能在修理汽車。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
