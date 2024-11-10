@@ -54,7 +54,10 @@ class HeadPatterns(Static):
 
     #Adv_pat = re.compile("<ModifierP>[^<]+(地)</ModifierP>")
 
-    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>|<AUX>是</AUX>|<FUNC_inner>在</FUNC_inner>)(?!<FUNC_inner>的</FUNC_inner>)")
+    P_pat: re.Pattern = re.compile("(<FUNC_inner>[從在]</FUNC_inner>)") #I did not know how to parse 在...裡面 yet.
+    "(<FUNC_inner>[從在]</FUNC_inner>)"
+    
+    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>|<AUX>是</AUX>)(?!<FUNC_inner>的</FUNC_inner>)")
     "(\<(ACTION_verb|VerbP)>[^\<]+\</(ACTION_verb|VerbP)>)"
 
     Cls_pat: re.Pattern =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
@@ -66,7 +69,7 @@ class HeadPatterns(Static):
     De_Comp_pat: re.Pattern = re.compile("(<FUNC_inner>得</FUNC_inner>)")
     "(\<FUNC_inner>得\</FUNC_inner>)"
 
-    N_pat: re.Pattern = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)")
+    N_pat: re.Pattern = re.compile("(<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)+")
     "(\<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^\<]+\</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)"
 
 @dataclass
@@ -233,7 +236,7 @@ def parse_AspP(NegP_comp: str) -> AspP:
         elif split[0].endswith(">") == False and split[1].startswith("</ACTION_verb>") == True:
             return AspP(left = split[0] + "</ACTION_verb>"
                         ,head = split[1][len("<ACTION_verb>") + 1:]
-                        ,comp = "<ACTION_verb>" + split[2]
+                        ,comp = split[2]
             )
         elif split[1].endswith("</ACTION_verb>") == True and split[1].startswith("<ACTION_verb>") == True:
             return AspP(left = split[0] + split[1][:len(split[1])-15:] + split[1][len(split[1])-14:]
@@ -264,14 +267,22 @@ class VP(Tree):
 class DegP(Tree):
     pass
 
+class PP(Tree):
+    pass
+
 def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
     split = split_pos(HeadPatterns.V_pat, LightVP_comp)
+    #pprint(split)
     if split:
         return VP(*split)
 
     split = split_pos(HeadPatterns.Deg_pat, LightVP_comp)
     if split:
         return DegP(*split)
+    
+    split = split_pos(HeadPatterns.P_pat, LightVP_comp)
+    if split:
+        return PP(*split)
 
     if NegP.head == "":
         return VP(left = ""
@@ -317,6 +328,19 @@ issue here about parsing NP?
 def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
     rc = parse_RC(ClsP.comp)
     if rc is None:
+        '''
+        here's a new sample for the n_head
+        suppose N_COMP will always be ""
+        when we find N + N (e.g., 我同學)
+        instead of always getting the first 我
+        i add line 284 285 as an example to capture longer nouns seperated by Articut
+        
+        p.s. Articut "我" will only be parsed as possessive when followed by a pronoun.
+        when its possessive, it will be viewed as NP.left, which is perfectly correct.
+        While its not, we might just see all the N+N as an N instead
+        '''
+        n_match = re.finditer(HeadPatterns.N_pat, ClsP.comp)
+        n_head = ''.join(match.group(0) for match in n_match)
         split_n = split_pos(HeadPatterns.N_pat, ClsP.comp)
         if checkCLS == True and split_n is None:
             if ClsP.head != "":
@@ -332,7 +356,10 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
         else:
                             
             #我吃五碗飯
-            return NP(*split_n)
+            return NP(left = split_n[0],
+                      head = n_head,
+                      comp = ""
+                      )
     else:
         #xx的yy
         return NP(
@@ -429,11 +456,10 @@ def parse_S(parseSTR: str) -> dict:
     '''
     if treeDICT["VP/PredP"].head in treeDICT["AspP"].left:
         v_index = treeDICT["AspP"].left.rfind(treeDICT["VP/PredP"].head)
-        treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index +len(treeDICT["VP/PredP"].head)] +
+        treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:v_index] +
                                  treeDICT["AspP"].left[v_index +len(treeDICT["VP/PredP"].head):])
-        
         
     if treeDICT["LightVP"].head in treeDICT["AspP"].left:
         lightv_index = treeDICT["AspP"].left.rfind(treeDICT["LightVP"].head)
@@ -441,7 +467,33 @@ def parse_S(parseSTR: str) -> dict:
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
                                  treeDICT["AspP"].left[lightv_index + len(treeDICT["LightVP"].head):])
+        
+    '''
+    from #419 to 431 is just a dumb way to get rid of the problem you mentioned 11/8 06:41.
+    It works for all scenarios I can think of but still, it should be optimized.
+    '''
 
+    tLightVP = parse_LightVP(tAspP.comp)
+    tVP = parse_VP(tLightVP.comp, tNegP)
+    tClsP = parse_ClsP(tVP.comp)
+    tNP = parse_NP(tClsP, True)
+    tDe_CompP = parse_De_CompP(tVP.comp)
+    
+    treeDICT["LightVP"] = tLightVP
+    treeDICT["VP/PredP"] = tVP
+    treeDICT["ClsP"] = tClsP
+    treeDICT["NP"] = tNP
+    treeDICT["De_CompP"] = tDe_CompP
+    
+    # SFP 了 should be at CP.Right. I will place it in CP.left for now.
+    for max_proj in ['De_CompP', 'NP', 'ClsP', 'VP/PredP', 'LightVP', 'AspP', 'NegP', 'ModP', 'IP', 'CP']:
+        if treeDICT[max_proj].head != "" and treeDICT[max_proj].comp.endswith("<ASPECT>了</ASPECT>"):
+            treeDICT["CP"].left = treeDICT["CP"].left + "<ASPECT>了</ASPECT>"
+            treeDICT[max_proj].comp = treeDICT[max_proj].comp[:len(treeDICT[max_proj].comp)-len("<ASPECT>了</ASPECT>")]
+            break
+        else:
+            continue
+    
     return treeDICT
 
 @dataclass
@@ -451,7 +503,7 @@ class EPP_movement():
     target_pos: str
     
 
-def ex_EPP_movement(treeDICT: dict) -> EPP_movement:    
+def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):    
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
         return None
     else:
@@ -462,19 +514,63 @@ def ex_EPP_movement(treeDICT: dict) -> EPP_movement:
                         subj = Tree(left="",
                                     head="",
                                     comp=treeDICT[max_proj].left)
-                        return EPP_movement(target_phrase = parse_NP(subj, False)
+                        treeDICT["IP"].left = parse_NP(subj, False)
+                        treeDICT["IP"].comp = treeDICT["IP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
+                        treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                        treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["IP"].left.left + treeDICT["IP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
+                        try:    
+                            for trace_pos in ["LightVP","AspP","NegP","ModP"]:
+                                if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
+                                    treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                        except KeyError:
+                            continue
+                        
+                        return (EPP_movement(target_phrase = parse_NP(subj, False)
                                             , original_pos = max_proj + "_left"
                                             ,target_pos = "IP_left"
-                                            )
+                                            ), 
+                                treeDICT)
                 except KeyError:
                     continue
             else:
-                treeDICT["LightVP"].left = "<Pro>Pro_Support</Pro>"
-                return EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
+                treeDICT["IP"].left = "<Pro>Pro_Support</Pro>"
+                treeDICT["IP"].comp = "<trace>Subj_trace</trace>" + treeDICT["IP"].comp
+                treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                for trace_pos in ["LightVP","AspP","NegP","ModP"]:
+                    try:    
+                        if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
+                            treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                    except KeyError:
+                        continue
+                return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
                                     , original_pos = "LightVP_left"
                                     ,target_pos = "IP_left"
-                                    )                
+                                    ),
+                        treeDICT)
 
+@dataclass
+class verb_raising():
+    target_phrase: str
+    original_pos: str
+    target_pos: str
+    
+def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
+    if treeDICT["AspP"].head != "" and treeDICT["VP/PredP"].head != "":
+        target_phrase = treeDICT["VP/PredP"].head
+        if "在" in treeDICT["AspP"].head:
+            treeDICT["AspP"].head = treeDICT["AspP"].head + treeDICT["VP/PredP"].head
+        else: 
+            treeDICT["AspP"].head = treeDICT["VP/PredP"].head + treeDICT["AspP"].head
+        
+        treeDICT["VP/PredP"].head = treeDICT["VP/PredP"].head.replace(target_phrase, "<trace>V_trace</trace>")
+        
+        return (verb_raising(target_phrase = target_phrase 
+                                    , original_pos = "VP_head"
+                                    ,target_pos = "AspP_head"
+                                    ),
+                treeDICT)
+    else:
+        return None
 
 def output_tree(treeDICT: dict):
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":    
@@ -531,7 +627,7 @@ def output_tree(treeDICT: dict):
             if treeDICT["NP"].head == "":
                 pass
             elif treeDICT["NP"].head == "∅":
-                print("\n [NP: Is The Object Elided ?]")
+                print("\n [NP: Is There An Elided NP?]")
                 pprint(treeDICT["NP"])
             else:
                 print("\n [NP]:")
@@ -550,25 +646,33 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我跟你說我喜歡的同學被騙了五張卡。"
+    inputSTR: int = "我吃了。" 
+    
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
     #parseSTR = parseLIST[0]
-        pprint(parseSTR)
+        print("*InputSTR:{}".format(inputSTR))
         treeDICT = parse_S(parseSTR)
         output_tree(treeDICT)
     
     print("\n")
+    print("*Narrow Syntax Operations:")
+    EPP_tree = ex_EPP_movement(treeDICT)
+    vraise_tree = ex_verb_raising(treeDICT)
+    if EPP_tree != None:            
+        pprint(EPP_tree[0])
+        print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
+        print("\n")
+        output_tree(EPP_tree[1])
         
-    pprint(ex_EPP_movement(treeDICT))
-    
-    #print("\n")
-    #print("\n")
-    
-    #EPP_mv = EPP_movement(treeDICT)
-    #output_tree(EPP_mv)
-    
+        if vraise_tree != None:
+            vraise_tree = ex_verb_raising(EPP_tree[1])
+            print("\n")            
+            pprint(vraise_tree[0])
+            print("\n")
+            output_tree(vraise_tree[1])        
+        
     '''
     These examples help understand the parsing process.
 
