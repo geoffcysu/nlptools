@@ -197,7 +197,7 @@ def parse_NegP(ModP_comp: str) -> NegP:
 class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 Some reference for AspP, FYI. :)
     pass 
 
-type HeadType = Literal['initial', 'final']
+HeadType = Literal['initial', 'final']
 asp_patterns = [
     re.compile("(</ACTION_verb>(<ASPECT>[過了著]+</ASPECT>)"),
     # "<ENTITY_pronoun>我</ENTITY_pronoun><ACTION_verb>吃</ACTION_verb><ASPECT>過</ASPECT><ENTITY_oov>飯</ENTITY_oov>"
