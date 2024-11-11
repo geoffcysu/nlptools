@@ -1,6 +1,6 @@
 
 from dataclasses import dataclass
-from typing import Any, Union, Generator, Optional
+from typing import Any, Union, Generator, Optional, Literal, TypeVar
 
 # prefix components:
 _space =  '   '
@@ -9,19 +9,54 @@ _branch = '│  '
 _tee =    '├──'
 _last =   '└──'
 
-@dataclass
+HeadType = Literal['initial','final']
+
+
+RangedStr = tuple[str, tuple[int,int]]
+
+
 class Tree:
-    left: 'Union[str,Tree]'
-    head: str
-    comp: 'Union[str,Tree]'
+    # Range information is used for tree printing.
+    left: 'Union[str,RangedStr,Tree,list[str]]'
+    head: Union[str, RangedStr]
+    comp: 'Union[str, RangedStr,Tree]'
     parent: 'Optional[Tree]' = None
+    head_type: HeadType = 'initial'
+    
+    folded: bool = False
 
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name,value)
         if name in ['comp','left'] and isinstance(value,Tree):
             value.parent = self
 
-        
+    def __init__(self,l: 'Optional[Union[str,RangedStr,Tree,list[str]]]' = None
+                     ,h: Optional[Union[str,RangedStr]] = None
+                     ,c: 'Optional[Union[str,RangedStr,Tree]]' = None
+                     ,*
+                     ,head_type: Literal['initial', 'final'] = 'initial'
+                     ,left: 'Optional[Union[str,Tree,list[str]]]' = None
+                     ,head: Optional[Union[str,RangedStr]] = None
+                     ,comp: 'Optional[Union[str,Tree]]' = None
+                     ):
+        """
+        The constructor can only be used in two ways: 
+        1. `Tree(l,h,c)` when `head_type='initial`
+        2. `Tree(left=.., head=.., comp=..)`
+        Two methods cannot be mixed.
+        """
+        if (not (l is None or h is None or c is None))\
+           and (left is None and head is None and comp is None)\
+           and head_type=='initial':
+            #Tree(left,head,comp) when head_type=='initial'
+            #DOES NOT ACCEPT Tree(l,h,c, head_type='final')
+            self.left, self.head, self.comp = l, h, c
+        elif (l is None and h is None and c is None)\
+             and (not (left is None or head is None or comp is None)):
+            #Tree(head=...,left=...,comp=..., head_type=...)
+            self.left, self.head, self.comp = left, head, comp
+        else:
+            raise Exception('Wrong use of the Tree constructor. ')
 
     def __printTree(self, prefix: str="") -> Generator[str,None,None]:
 
@@ -162,25 +197,9 @@ IP─""
  └─""
 
 """
-sss = """
-        ┌─────────────────────了
-        │          ┌──◁ 五千元
-  ┌─AspP┴LightVP-VP──騙
-  │  │    │       └─""
-  │  │    └─被
-  │  └─""
-IP─""
- └─""
-        ┌───────────────────────< >
-        │          ┌────◁ 五千元 ║
-  ┌─AspP┴LightVP-VP──騙了<═══════╝
-  │  │    │       └─""
-  │  │    └─被
-  │  └─""
-IP─""
- └─""
-"""
-print(sss)
+
+
+
 ex1 = VP(head = "吃"
         ,left = "他"
         ,comp = ClsP(head = "五碗"
