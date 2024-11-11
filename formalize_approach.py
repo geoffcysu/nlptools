@@ -4,6 +4,7 @@ from pprint import pprint
 from typing import Optional, Tuple, Callable, Union, TypeVar, Generic, Any,\
                    Literal
 
+import copy
 import json
 import re
 import os
@@ -404,8 +405,25 @@ NP -> (? rc_pat) ? ??
 """
 # pred_on_neg: Tree -> input:str -> Either[Err,Tree] #how to represent the continuation?
 
+def gen_realTree(treeDICT: dict) -> Tree:
+    projLIST = ['CP', 'IP', 'ModP', 'NegP', 'AspP', 'LightVP', 'VP/PredP', 'ClsP', 'NP', 'De_CompP']
+    realDICT = copy.deepcopy(treeDICT)
 
-def parse_S(parseSTR: str) -> dict:
+    for max_proj in range(len(projLIST) - 1, -1, -1):
+        if realDICT[projLIST[max_proj]].head != "":
+            for higher_proj in range(projLIST.index(projLIST[max_proj]) - 1, -1, -1):
+                if realDICT[projLIST[higher_proj]].head != "":
+                    parent_proj = projLIST[higher_proj]
+                    current_proj = projLIST[max_proj]
+                    realDICT[parent_proj].comp = realDICT[current_proj]
+                    
+    for max_proj in list(realDICT.keys()):
+        if realDICT[max_proj].head == "":
+            realDICT.pop(max_proj, None)
+            
+    return realDICT["CP"]
+
+def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     tCP = parse_CP(parseSTR)
     tIP = parse_IP(tCP.comp)
     tModP = parse_ModP(tIP.comp)
@@ -493,9 +511,23 @@ def parse_S(parseSTR: str) -> dict:
             break
         else:
             continue
+        
+    if genTree == True:
+        realTree = gen_realTree(treeDICT)
+        
+        if showTree == True:
+            print("\n")
+            pprint(realTree)
+        
+        return realTree
     
-    return treeDICT
-
+    else:
+        if showTree == True:
+            print("\n")
+            output_tree(treeDICT)
+        
+        return treeDICT        
+        
 @dataclass
 class EPP_movement():
     target_phrase: 'Union[str, Tree]'
@@ -503,7 +535,7 @@ class EPP_movement():
     target_pos: str
     
 
-def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):    
+def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):    
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
         return None
     else:
@@ -525,6 +557,16 @@ def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):
                         except KeyError:
                             continue
                         
+                        
+                        print("\n")
+                        pprint(EPP_movement(target_phrase = parse_NP(subj, False)
+                                        , original_pos = max_proj + "_left"
+                                        ,target_pos = "IP_left"
+                                        ))                        
+                        
+                        if showTree == True:
+                            output_tree(treeDICT)                        
+                        
                         return (EPP_movement(target_phrase = parse_NP(subj, False)
                                             , original_pos = max_proj + "_left"
                                             ,target_pos = "IP_left"
@@ -542,6 +584,16 @@ def ex_EPP_movement(treeDICT: dict) -> (EPP_movement, dict):
                             treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
                     except KeyError:
                         continue
+                    
+                print("\n")
+                pprint(EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
+                                , original_pos = "LightVP_left"
+                                ,target_pos = "IP_left"
+                                ))                
+            
+                if showTree == True:
+                    output_tree(treeDICT)                    
+            
                 return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
                                     , original_pos = "LightVP_left"
                                     ,target_pos = "IP_left"
@@ -554,7 +606,7 @@ class verb_raising():
     original_pos: str
     target_pos: str
     
-def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
+def ex_verb_raising(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
     if treeDICT["AspP"].head != "" and treeDICT["VP/PredP"].head != "":
         target_phrase = treeDICT["VP/PredP"].head
         if "在" in treeDICT["AspP"].head:
@@ -564,12 +616,24 @@ def ex_verb_raising(treeDICT: dict) -> (EPP_movement, dict):
         
         treeDICT["VP/PredP"].head = treeDICT["VP/PredP"].head.replace(target_phrase, "<trace>V_trace</trace>")
         
+        print("\n")
+        pprint(verb_raising(target_phrase = target_phrase 
+                                , original_pos = "VP_head"
+                                ,target_pos = "AspP_head"
+                                ))        
+        
+        if showTree == True:
+            output_tree(treeDICT)
+        
         return (verb_raising(target_phrase = target_phrase 
                                     , original_pos = "VP_head"
                                     ,target_pos = "AspP_head"
                                     ),
                 treeDICT)
     else:
+        if showTree == True:
+            pprint("No Possible Verb Raising Scenario.")
+            
         return None
 
 def output_tree(treeDICT: dict):
@@ -646,32 +710,39 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我吃了。" 
+    inputSTR: int = "我昨天吃了五碗飯。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
-    #parseSTR = parseLIST[0]
         print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR)
-        output_tree(treeDICT)
-    
-    print("\n")
-    print("*Narrow Syntax Operations:")
-    EPP_tree = ex_EPP_movement(treeDICT)
-    vraise_tree = ex_verb_raising(treeDICT)
-    if EPP_tree != None:            
-        pprint(EPP_tree[0])
-        print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
+        treeDICT = parse_S(parseSTR, False, False)
+        realTree = parse_S(parseSTR, True, True)
         print("\n")
-        output_tree(EPP_tree[1])
+    
+    print("*Narrow Syntax Operations:")
+    EPP_tree = ex_EPP_movement(treeDICT, False)
+    vraise_tree = ex_verb_raising(treeDICT, False)    
         
-        if vraise_tree != None:
-            vraise_tree = ex_verb_raising(EPP_tree[1])
-            print("\n")            
-            pprint(vraise_tree[0])
-            print("\n")
-            output_tree(vraise_tree[1])        
+        
+    #pprint(treeDICT)
+        
+    #output_tree(treeDICT)
+        
+    #print("\n")
+    
+    #if EPP_tree != None:            
+        #pprint(EPP_tree[0])
+        #print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
+        #print("\n")
+        #output_tree(EPP_tree[1])
+        
+        #if vraise_tree != None:
+            #vraise_tree = ex_verb_raising(EPP_tree[1])
+            #print("\n")            
+            #pprint(vraise_tree[0])
+            #print("\n")
+            #output_tree(vraise_tree[1])        
         
     '''
     These examples help understand the parsing process.
