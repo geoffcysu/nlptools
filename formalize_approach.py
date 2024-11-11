@@ -377,7 +377,7 @@ def gen_realTree(treeDICT: dict) -> Tree:
             
     return realDICT["CP"]
 
-def parse_S(parseSTR: str, showTree: bool) -> dict:
+def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     tCP = parse_CP(parseSTR)
     tIP = parse_IP(tCP.comp)
     tModP = parse_ModP(tIP.comp)
@@ -466,12 +466,17 @@ def parse_S(parseSTR: str, showTree: bool) -> dict:
         else:
             continue
         
-    if showTree == False:
-        return treeDICT
+    if genTree == True:
+        realTree = gen_realTree(treeDICT)
+        
+        if showTree == True:
+            pprint(realTree)
+            return realTree
     
     else:
-        return gen_realTree(treeDICT)
-        
+        if showTree:
+            output_tree(treeDICT)
+            return treeDICT        
         
 @dataclass
 class EPP_movement():
@@ -623,15 +628,16 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我吃了五碗飯了。" 
+    inputSTR: int = "我昨天吃了五碗飯。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
     #parseSTR = parseLIST[0]
         print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR, True)
-        pprint(treeDICT)
+        treeDICT = parse_S(parseSTR, True, True)
+        print("\n")
+        #pprint(treeDICT)
         
         #output_tree(treeDICT)
         
