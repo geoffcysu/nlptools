@@ -470,12 +470,14 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
         realTree = gen_realTree(treeDICT)
         
         if showTree == True:
+            print("\n")
             pprint(realTree)
         
         return realTree
     
     else:
         if showTree == True:
+            print("\n")
             output_tree(treeDICT)
         
         return treeDICT        
@@ -667,19 +669,22 @@ if __name__ == '__main__':
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
-    #parseSTR = parseLIST[0]
         print("*InputSTR:{}".format(inputSTR))
         treeDICT = parse_S(parseSTR, False, False)
         realTree = parse_S(parseSTR, True, True)
         print("\n")
-        #pprint(treeDICT)
-        
-        #output_tree(treeDICT)
-        
-    #print("\n")
+    
     print("*Narrow Syntax Operations:")
     EPP_tree = ex_EPP_movement(treeDICT, False)
-    vraise_tree = ex_verb_raising(treeDICT, False)
+    vraise_tree = ex_verb_raising(treeDICT, False)    
+        
+        
+    #pprint(treeDICT)
+        
+    #output_tree(treeDICT)
+        
+    #print("\n")
+    
     #if EPP_tree != None:            
         #pprint(EPP_tree[0])
         #print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
