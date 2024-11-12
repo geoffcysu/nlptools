@@ -316,11 +316,17 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
                       comp = ""
                       )
     else:
+        n_tree = NP(
+            left = "", 
+            head = "",
+            comp = rc.right
+        )
+        n_head = parse_NP(n_tree, False)
         #xx的yy
         return NP(
             left = rc.left + rc.head,
-            head = rc.right,
-            comp = "" #rc.comp.split(N)[-1] ??
+            head = n_head.head,
+            comp = ""
         )
 
 
@@ -711,7 +717,7 @@ def c_command(realTree: Tree) -> bool:
     pass
 
 if __name__ == '__main__':
-    inputSTR: int = "我昨天吃五碗飯。" 
+    inputSTR: int = "大家都喜歡的我昨天吃了五碗大家都喜歡吃的飯。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
@@ -721,9 +727,9 @@ if __name__ == '__main__':
         realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
 
-    #print("*Narrow Syntax Operations:")
-    #EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-    #vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
+    print("*Narrow Syntax Operations:")
+    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
     
     '''
     These examples help understand the parsing process.
