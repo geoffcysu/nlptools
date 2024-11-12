@@ -120,11 +120,11 @@ def parse_CP(parseSTR: str)->CP:
         #or simply `Tree(*split)`
 
 
-class IP(Tree):
+class TP(Tree):
     pass
 
-def parse_IP(CP_comp: str) -> IP:
-    return IP(left = ""
+def parse_TP(CP_comp: str) -> TP:
+    return TP(left = ""
               ,head = "∅"
               ,comp = CP_comp
               )
@@ -133,12 +133,12 @@ def parse_IP(CP_comp: str) -> IP:
 class ModP(Tree):
     pass
 
-def parse_ModP(IP_comp: str) -> ModP:
-    split = split_pos(HeadPatterns.Mod_pat, IP_comp)
+def parse_ModP(TP_comp: str) -> ModP:
+    split = split_pos(HeadPatterns.Mod_pat, TP_comp)
     if split is None:
         return ModP(left = ""
                     ,head = ""
-                    ,comp = IP_comp
+                    ,comp = TP_comp
                     )
     else:
         return ModP(*split)
@@ -339,9 +339,9 @@ def parse_De_CompP(VP_comp: str) -> De_CompP:
 
 """
 equivalent to writing:
-CP -> ? !c_pat IP
-    | ø ø IP
-IP -> ø ModP
+CP -> ? !c_pat TP
+    | ø ø TP
+TP -> ø ModP
 ModP -> ? !mod_pat NegP
     | "" "" NegP
 NegP -> ? neg_pat LightVP
@@ -360,7 +360,7 @@ NP -> (? rc_pat) ? ??
 # pred_on_neg: Tree -> input:str -> Either[Err,Tree] #how to represent the continuation?
 
 def gen_realTree(treeDICT: dict) -> Tree:
-    projLIST = ['CP', 'IP', 'ModP', 'NegP', 'AspP', 'LightVP', 'VP/PredP', 'ClsP', 'NP', 'De_CompP']
+    projLIST = ['CP', 'TP', 'ModP', 'NegP', 'AspP', 'LightVP', 'VP/PredP', 'ClsP', 'NP', 'De_CompP']
     realDICT = copy.deepcopy(treeDICT)
 
     for max_proj in range(len(projLIST) - 1, -1, -1):
@@ -379,8 +379,8 @@ def gen_realTree(treeDICT: dict) -> Tree:
 
 def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     tCP = parse_CP(parseSTR)
-    tIP = parse_IP(tCP.comp)
-    tModP = parse_ModP(tIP.comp)
+    tTP = parse_TP(tCP.comp)
+    tModP = parse_ModP(tTP.comp)
     tNegP = parse_NegP(tModP.comp)
     tAspP = parse_AspP(tNegP.comp)
     tLightVP = parse_LightVP(tNegP.comp)
@@ -391,7 +391,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
 
     treeDICT = {
         "CP": tCP,
-        "IP": tIP,
+        "TP": tTP,
         "ModP": tModP,
         "NegP": tNegP,
         "AspP": tAspP,
@@ -458,7 +458,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     treeDICT["De_CompP"] = tDe_CompP
     
     # SFP 了 should be at CP.Right. I will place it in CP.left for now.
-    for max_proj in ['De_CompP', 'NP', 'ClsP', 'VP/PredP', 'LightVP', 'AspP', 'NegP', 'ModP', 'IP', 'CP']:
+    for max_proj in ['De_CompP', 'NP', 'ClsP', 'VP/PredP', 'LightVP', 'AspP', 'NegP', 'ModP', 'TP', 'CP']:
         if treeDICT[max_proj].head != "" and treeDICT[max_proj].comp.endswith("<ASPECT>了</ASPECT>"):
             treeDICT["CP"].left = treeDICT["CP"].left + "<ASPECT>了</ASPECT>"
             treeDICT[max_proj].comp = treeDICT[max_proj].comp[:len(treeDICT[max_proj].comp)-len("<ASPECT>了</ASPECT>")]
@@ -493,17 +493,17 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
         return None
     else:
-        if treeDICT["IP"].left == "":
+        if treeDICT["TP"].left == "":
             for max_proj in ["ModP","NegP","AspP","LightVP","VP/PredP"]:
                 try:
                     if treeDICT[max_proj].left != "":
                         subj = Tree(left="",
                                     head="",
                                     comp=treeDICT[max_proj].left)
-                        treeDICT["IP"].left = parse_NP(subj, False)
-                        treeDICT["IP"].comp = treeDICT["IP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
+                        treeDICT["TP"].left = parse_NP(subj, False)
+                        treeDICT["TP"].comp = treeDICT["TP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
                         treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
-                        treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["IP"].left.left + treeDICT["IP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
+                        treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
                         try:    
                             for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                                 if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
@@ -515,7 +515,7 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                         print("\n")
                         pprint(EPP_movement(target_phrase = parse_NP(subj, False)
                                         , original_pos = max_proj + "_left"
-                                        ,target_pos = "IP_left"
+                                        ,target_pos = "TP_left"
                                         ))                        
                         
                         if showTree == True:
@@ -523,14 +523,14 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                         
                         return (EPP_movement(target_phrase = parse_NP(subj, False)
                                             , original_pos = max_proj + "_left"
-                                            ,target_pos = "IP_left"
+                                            ,target_pos = "TP_left"
                                             ), 
                                 treeDICT)
                 except KeyError:
                     continue
             else:
-                treeDICT["IP"].left = "<Pro>Pro_Support</Pro>"
-                treeDICT["IP"].comp = "<trace>Subj_trace</trace>" + treeDICT["IP"].comp
+                treeDICT["TP"].left = "<Pro>Pro_Support</Pro>"
+                treeDICT["TP"].comp = "<trace>Subj_trace</trace>" + treeDICT["TP"].comp
                 treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
                 for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                     try:    
@@ -542,7 +542,7 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                 print("\n")
                 pprint(EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
                                 , original_pos = "LightVP_left"
-                                ,target_pos = "IP_left"
+                                ,target_pos = "TP_left"
                                 ))                
             
                 if showTree == True:
@@ -550,7 +550,7 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
             
                 return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
                                     , original_pos = "LightVP_left"
-                                    ,target_pos = "IP_left"
+                                    ,target_pos = "TP_left"
                                     ),
                         treeDICT)
 
@@ -603,8 +603,8 @@ def output_tree(treeDICT: dict):
             print("\n [CP]:")
             pprint(treeDICT["CP"])
             
-            print("\n [IP]:")
-            pprint(treeDICT["IP"])
+            print("\n [TP]:")
+            pprint(treeDICT["TP"])
             
             if treeDICT["ModP"].head == "":
                 pass
@@ -750,7 +750,7 @@ if __name__ == '__main__':
                 #print("\n Overt Subject:")
                 #pprint(EPP_mv[1][0]["LEFT"])
 
-                #print("\n IP")
+                #print("\n TP")
                 #pprint(EPP_mv[1][0])
                 #print("\n θ Theta PositionP")
                 #pprint(EPP_mv[1][1])
