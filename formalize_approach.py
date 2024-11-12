@@ -504,7 +504,10 @@ def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movem
                         treeDICT["TP"].left = parse_NP(subj, False)
                         treeDICT["TP"].comp = treeDICT["TP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
                         treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
-                        treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
+                        if max_proj != "VP/PredP": 
+                            treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
+                        else:
+                            treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "")
                         try:    
                             for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                                 if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
@@ -711,8 +714,8 @@ if __name__ == '__main__':
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
         print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR, genTree=False, showTree=False)
-        realTree = parse_S(parseSTR, genTree=True, showTree=True)
+        treeDICT = parse_S(parseSTR, genTree=False, showTree=True)
+        realTree = parse_S(parseSTR, genTree=True, showTree=False)
         print("\n")
     
     print("*Narrow Syntax Operations:")
