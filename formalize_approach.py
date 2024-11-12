@@ -707,6 +707,9 @@ def output_tree(treeDICT: dict):
             print("\n", e)
             raise
 
+def c_command(realTree: Tree) -> bool:
+    pass
+
 if __name__ == '__main__':
     inputSTR: int = "我昨天吃五碗飯。" 
     
@@ -714,34 +717,14 @@ if __name__ == '__main__':
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
         print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR, genTree=False, showTree=True)
-        realTree = parse_S(parseSTR, genTree=True, showTree=False)
+        treeDICT = parse_S(parseSTR, genTree=False, showTree=False)
+        realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
+
+    #print("*Narrow Syntax Operations:")
+    #EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+    #vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
     
-    print("*Narrow Syntax Operations:")
-    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
-        
-        
-    #pprint(treeDICT)
-        
-    #output_tree(treeDICT)
-        
-    #print("\n")
-    
-    #if EPP_tree != None:            
-        #pprint(EPP_tree[0])
-        #print("\n (Subject Will Be Replaced Back To Theta Position Beforehand. See Tree:)")
-        #print("\n")
-        #output_tree(EPP_tree[1])
-        
-        #if vraise_tree != None:
-            #vraise_tree = ex_verb_raising(EPP_tree[1])
-            #print("\n")            
-            #pprint(vraise_tree[0])
-            #print("\n")
-            #output_tree(vraise_tree[1])        
-        
     '''
     These examples help understand the parsing process.
 
@@ -758,60 +741,6 @@ if __name__ == '__main__':
     '''
     #userINPUT = "我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     #inputLIST = userINPUT.split("。")
-
-    #pos_pat = "<[^>]+>[^<]+</[^>]+"
-
-    #for inputSTR in inputLIST:
-        #patDICT = render_pat()
-        #if len(inputSTR) <= 1:
-            #print("*************************************************************START-PARSE**************************************************************")
-            #pprint("{} Is Not A Valid Input.".format(inputSTR))
-            #print("\n")
-            #print("*************************************************************END OF PARSE**************************************************************")
-            #print("\n\n")
-            #continue
-        #else:
-            #print("userINPUT: {}".format(inputSTR))
-            #print("*************************************************************START-PARSE**************************************************************")
-            #resultDICT = articut.parse(inputSTR, level="lv1")
-            #parseSTR = ''.join(resultDICT['result_pos'])
-            #wordLIST = re.findall(r'<[^>]+>[^<]+</[^>]+>', parseSTR)
-            #print("Articut Result:\n")
-            #pprint(wordLIST)
-            #print("--------------------------------------------------------------------------------------------------------------------------------")
-
-            #treeDICT = parse_S(parseSTR)
-            #print("D-structure:")
-            #output_tree(treeDICT)
-
-        #try:
-            #EPP_mv = EPP_movement(treeDICT, patDICT)
-            ##pprint(inputSTR)            
-            #if EPP_mv != False:
-                #print("--------------------------------------------------------------------------------------------------------------------------------")
-                #print("EPP: Subject NP/DP moves from theta position (vP/VP) to SpecTP.")                
-                ##pprint(EPP_mv)
-                #print("\n Overt Subject:")
-                #pprint(EPP_mv[1][0]["LEFT"])
-
-                #print("\n TP")
-                #pprint(EPP_mv[1][0])
-                #print("\n θ Theta PositionP")
-                #pprint(EPP_mv[1][1])
-                #print("================================================================================================================================")
-                #print("*************************************************************SEND TO LF**************************************************************")
-                #print("\n\n\n\n\n\n\n\n\n\n")
-
-            #else:
-                #print("================================================================================================================================")
-                #print("*************************************************************SEND TO LF**************************************************************")
-                #print("\n\n\n\n\n\n\n\n\n\n")
-
-        #except:
-            #print("\n Cannot Find [+EPP].")
-            #print("================================================================================================================================")
-            #print("*************************************************************SEND TO LF**************************************************************")
-            #print("\n\n\n\n\n\n\n\n\n\n")           
 
     '''
     I hope the output goes like:
