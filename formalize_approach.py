@@ -489,8 +489,9 @@ class EPP_movement():
     target_pos: str
     
 
-def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):    
+def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movement, 'Union[Tree,dict]'):    
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
+        print("\nEPP_movement：No Necessary EPP Movement Scenario.")
         return None
     else:
         if treeDICT["TP"].left == "":
@@ -518,14 +519,29 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                                         ,target_pos = "TP_left"
                                         ))                        
                         
-                        if showTree == True:
-                            output_tree(treeDICT)                        
+                        if genTree == True:
+                            realTree = gen_realTree(treeDICT)
+                            
+                            if showTree == True:
+                                print("\n")
+                                pprint(realTree)
+                                
+                            return (EPP_movement(target_phrase = parse_NP(subj, False)
+                                                    , original_pos = max_proj + "_left"
+                                                    ,target_pos = "TP_left"
+                                                    ), 
+                                        realTree)
                         
-                        return (EPP_movement(target_phrase = parse_NP(subj, False)
-                                            , original_pos = max_proj + "_left"
-                                            ,target_pos = "TP_left"
-                                            ), 
-                                treeDICT)
+                        else:
+                            if showTree == True:
+                                output_tree(treeDICT)                        
+                        
+                                return (EPP_movement(target_phrase = parse_NP(subj, False)
+                                                    , original_pos = max_proj + "_left"
+                                                    ,target_pos = "TP_left"
+                                                    ), 
+                                        treeDICT)
+                            
                 except KeyError:
                     continue
             else:
@@ -544,15 +560,29 @@ def ex_EPP_movement(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                                 , original_pos = "LightVP_left"
                                 ,target_pos = "TP_left"
                                 ))                
+                
+                if genTree == True:
+                    realTree = gen_realTree(treeDICT)
+                
+                    if showTree == True:
+                        print("\n")
+                        pprint(realTree)                    
             
-                if showTree == True:
-                    output_tree(treeDICT)                    
-            
-                return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
-                                    , original_pos = "LightVP_left"
-                                    ,target_pos = "TP_left"
-                                    ),
-                        treeDICT)
+                        return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
+                                            , original_pos = "LightVP_left"
+                                            ,target_pos = "TP_left"
+                                            ),
+                                realTree)
+                    
+                else:
+                    if showTree == True:
+                        output_tree(treeDICT)
+                        
+                        return (EPP_movement(target_phrase = "<Pro>Pro_Support</Pro>" 
+                                            , original_pos = "LightVP_left"
+                                            ,target_pos = "TP_left"
+                                            ),
+                                treeDICT)                        
 
 @dataclass
 class verb_raising():
@@ -560,7 +590,7 @@ class verb_raising():
     original_pos: str
     target_pos: str
     
-def ex_verb_raising(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
+def ex_verb_raising(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movement, 'Union[Tree,dict]'):
     if treeDICT["AspP"].head != "" and treeDICT["VP/PredP"].head != "":
         target_phrase = treeDICT["VP/PredP"].head
         if "在" in treeDICT["AspP"].head:
@@ -576,18 +606,29 @@ def ex_verb_raising(treeDICT: dict, showTree: bool) -> (EPP_movement, dict):
                                 ,target_pos = "AspP_head"
                                 ))        
         
-        if showTree == True:
-            output_tree(treeDICT)
-        
-        return (verb_raising(target_phrase = target_phrase 
-                                    , original_pos = "VP_head"
-                                    ,target_pos = "AspP_head"
-                                    ),
-                treeDICT)
-    else:
-        if showTree == True:
-            pprint("No Possible Verb Raising Scenario.")
+        if genTree == True:
+            realTree = gen_realTree(treeDICT)
             
+            if showTree == True:
+                pprint(realTree)
+            
+            return (verb_raising(target_phrase = target_phrase 
+                                        , original_pos = "VP_head"
+                                        ,target_pos = "AspP_head"
+                                        ),
+                    realTree)
+        else:
+            if showTree == True:
+                output_tree(treeDICT)
+            
+            return (verb_raising(target_phrase = target_phrase 
+                                        , original_pos = "VP_head"
+                                        ,target_pos = "AspP_head"
+                                        ),
+                    treeDICT)            
+            
+    else:
+        print("\nVerb Raising：No Necessary Verb Raising Scenario.")
         return None
 
 def output_tree(treeDICT: dict):
@@ -664,19 +705,19 @@ def output_tree(treeDICT: dict):
             raise
 
 if __name__ == '__main__':
-    inputSTR: int = "我昨天吃了五碗飯。" 
+    inputSTR: int = "我昨天吃五碗飯。" 
     
     #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
         print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR, False, False)
-        realTree = parse_S(parseSTR, True, True)
+        treeDICT = parse_S(parseSTR, genTree=False, showTree=False)
+        realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
     
     print("*Narrow Syntax Operations:")
-    EPP_tree = ex_EPP_movement(treeDICT, False)
-    vraise_tree = ex_verb_raising(treeDICT, False)    
+    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
         
         
     #pprint(treeDICT)
