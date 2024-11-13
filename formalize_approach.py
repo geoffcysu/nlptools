@@ -52,7 +52,7 @@ class HeadPatterns(Static):
     Deg_pat: re.Pattern = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
     "(\<FUNC_degreeHead>很\</FUNC_degreeHead>)"
 
-    #Adv_pat = re.compile("<ModifierP>[^<]+(地)</ModifierP>")
+    Adv_pat = re.compile("(<ModifierP>[^<]+地</ModifierP>|<[^>]+>[^<]+</[^>]+><FUNC_modifierHead>地</FUNC_modifierHead>|(?:<TIME_[a-z]+>[^<]+</TIME_[a-z]+>){1,10}(?:<RANGE_period>[^<]+</RANGE_period>)?)")
 
     P_pat: re.Pattern = re.compile("(<FUNC_inner>[從在]</FUNC_inner>)") #I did not know how to parse 在...裡面 yet.
     "(<FUNC_inner>[從在]</FUNC_inner>)"
@@ -74,9 +74,12 @@ class HeadPatterns(Static):
 
 @dataclass
 class Tree:
-    left: str
+    left: 'Union[str,Tree,list[str]]'
     head: str
     comp: 'Union[str,Tree,list[str]]'
+    
+    def c_command(parentSTR: str, childSTR: str, self) -> bool:
+        pass
 
 
 @dataclass
@@ -100,6 +103,12 @@ def split_pos(pat:re.Pattern, src:str) -> Optional[Tuple[str,str,str]]:
             m.group(1),          #the string that matches pat
             src[head_span[1]:])  #the string after pat
 
+
+def split_left(src: str) -> list[str]:
+    elemLIST = [word for word in re.split(HeadPatterns.Adv_pat, src) if word != ""]
+    #pprint(elemLIST)
+        
+    return elemLIST
 
 class CP(Tree):
     pass
@@ -141,7 +150,10 @@ def parse_ModP(TP_comp: str) -> ModP:
                     ,comp = TP_comp
                     )
     else:
-        return ModP(*split)
+        return ModP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
 
 class NegP(Tree):
@@ -155,7 +167,10 @@ def parse_NegP(ModP_comp: str) -> NegP:
                     ,comp = ModP_comp
                     )
     else:
-        return NegP(*split)
+        return NegP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
 
 class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 Some reference for AspP, FYI. :)
@@ -165,9 +180,9 @@ def parse_AspP(NegP_comp: str) -> AspP:
     split = split_pos(HeadPatterns.Asp_pat, NegP_comp)
     if split is None:
         return AspP(left = ""
-                       ,head = ""
-                       ,comp = NegP_comp
-                       )
+                    ,head = ""
+                    ,comp = NegP_comp
+                    )
     else:
         '''
         I added the following lines to alter output.
@@ -184,23 +199,26 @@ def parse_AspP(NegP_comp: str) -> AspP:
         '''
         
         if split[1].endswith("<ACTION_verb>") == True and split[2].startswith("<") == False:
-            return AspP(left = split[0]
+            return AspP(left = split_left(split[0])
                         ,head = split[1][:-len("<ACTION_verb>")]
                         ,comp = "<ACTION_verb>" + split[2]
             )
         elif split[0].endswith(">") == False and split[1].startswith("</ACTION_verb>") == True:
-            return AspP(left = split[0] + "</ACTION_verb>"
+            return AspP(left = split_left(split[0] + "</ACTION_verb>")
                         ,head = split[1][len("<ACTION_verb>") + 1:]
                         ,comp = split[2]
             )
         elif split[1].endswith("</ACTION_verb>") == True and split[1].startswith("<ACTION_verb>") == True:
-            return AspP(left = split[0] + split[1][:len(split[1])-15:] + split[1][len(split[1])-14:]
+            return AspP(left = split_left(split[0] + split[1][:len(split[1])-15:] + split[1][len(split[1])-14:])
                         ,head = "<ASPECT>" + split[1][len(split[1])-15] + "</ASPECT>"
                         ,comp = split[2]
             )            
         
         else:
-            return AspP(*split)
+            return AspP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
 class LightVP(Tree):
     pass
@@ -213,7 +231,10 @@ def parse_LightVP(NegP_comp: str) -> LightVP:
                        ,comp = NegP_comp
                        )
     else:
-        return LightVP(*split)
+        return LightVP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
 
 class VP(Tree):
@@ -229,15 +250,25 @@ def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
     split = split_pos(HeadPatterns.V_pat, LightVP_comp)
     #pprint(split)
     if split:
-        return VP(*split)
+        #pprint(split_left(split[0]))
+        return VP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
     split = split_pos(HeadPatterns.Deg_pat, LightVP_comp)
     if split:
-        return DegP(*split)
+        return DegP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
     
     split = split_pos(HeadPatterns.P_pat, LightVP_comp)
     if split:
-        return PP(*split)
+        return PP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
     if NegP.head == "":
         return VP(left = ""
@@ -343,6 +374,7 @@ def parse_De_CompP(VP_comp: str) -> De_CompP:
     else:
         return De_CompP(*split)
 
+
 """
 equivalent to writing:
 CP -> ? !c_pat TP
@@ -408,6 +440,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
         "De_CompP": tDe_CompP
     }
     
+    pprint(treeDICT["AspP"].left)
     '''
     Move LightV and V -- I haven't come up with a better solution so far.
     
@@ -433,14 +466,14 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     comp 被騙五張卡
     '''
     if treeDICT["VP/PredP"].head in treeDICT["AspP"].left:
-        v_index = treeDICT["AspP"].left.rfind(treeDICT["VP/PredP"].head)
+        v_index = str(treeDICT["AspP"].left).rfind(treeDICT["VP/PredP"].head)
         treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:v_index] +
                                  treeDICT["AspP"].left[v_index +len(treeDICT["VP/PredP"].head):])
         
     if treeDICT["LightVP"].head in treeDICT["AspP"].left:
-        lightv_index = treeDICT["AspP"].left.rfind(treeDICT["LightVP"].head)
+        lightv_index = str(treeDICT["AspP"].left).rfind(treeDICT["LightVP"].head)
         treeDICT["AspP"].comp = (treeDICT["AspP"].left[lightv_index:lightv_index + len(treeDICT["LightVP"].head):] +
                                  treeDICT["AspP"].comp)        
         treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
@@ -713,13 +746,12 @@ def output_tree(treeDICT: dict):
             print("\n", e)
             raise
 
-def c_command(realTree: Tree) -> bool:
-    pass
+
+
 
 if __name__ == '__main__':
-    inputSTR: int = "大家都喜歡的我昨天吃了五碗大家都喜歡吃的飯。" 
-    
-    #"我覺得說他可以被吃五碗他喜歡的飯。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
+    inputSTR: int = "我爸爸的朋友昨天吃了五碗飯。" 
+    #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
         print("*InputSTR:{}".format(inputSTR))
@@ -727,9 +759,9 @@ if __name__ == '__main__':
         realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
 
-    print("*Narrow Syntax Operations:")
-    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
+    #print("*Narrow Syntax Operations:")
+    #EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+    #vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
     
     '''
     These examples help understand the parsing process.
