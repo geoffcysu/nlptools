@@ -440,7 +440,6 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
         "De_CompP": tDe_CompP
     }
     
-    pprint(treeDICT["AspP"].left)
     '''
     Move LightV and V -- I haven't come up with a better solution so far.
     
@@ -465,19 +464,24 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     head 了
     comp 被騙五張卡
     '''
-    if treeDICT["VP/PredP"].head in treeDICT["AspP"].left:
-        v_index = str(treeDICT["AspP"].left).rfind(treeDICT["VP/PredP"].head)
-        treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
-                                 treeDICT["AspP"].comp)        
-        treeDICT["AspP"].left = (treeDICT["AspP"].left[:v_index] +
-                                 treeDICT["AspP"].left[v_index +len(treeDICT["VP/PredP"].head):])
+    if treeDICT["VP/PredP"].head == treeDICT["AspP"].left[-1]:
+        treeDICT["AspP"].comp = treeDICT["VP/PredP"].head + treeDICT["AspP"].comp
+        treeDICT["AspP"].left.pop() 
+        
+        #v_index = treeDICT["AspP"].left.rfind(treeDICT["VP/PredP"].head)
+        #treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
+                                 #treeDICT["AspP"].comp)        
+        #treeDICT["AspP"].left = (treeDICT["AspP"].left[:v_index] +
+                                 #treeDICT["AspP"].left[v_index +len(treeDICT["VP/PredP"].head):])
         
     if treeDICT["LightVP"].head in treeDICT["AspP"].left:
-        lightv_index = str(treeDICT["AspP"].left).rfind(treeDICT["LightVP"].head)
-        treeDICT["AspP"].comp = (treeDICT["AspP"].left[lightv_index:lightv_index + len(treeDICT["LightVP"].head):] +
-                                 treeDICT["AspP"].comp)        
-        treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
-                                 treeDICT["AspP"].left[lightv_index + len(treeDICT["LightVP"].head):])
+        treeDICT["AspP"].comp = treeDICT["LightVP"].head + treeDICT["AspP"].comp
+        treeDICT["AspP"].left.pop()         
+        #lightv_index = str(treeDICT["AspP"].left).rfind(treeDICT["LightVP"].head)
+        #treeDICT["AspP"].comp = (treeDICT["AspP"].left[lightv_index:lightv_index + len(treeDICT["LightVP"].head):] +
+                                 #treeDICT["AspP"].comp)        
+        #treeDICT["AspP"].left = (treeDICT["AspP"].left[:lightv_index] +
+                                 #treeDICT["AspP"].left[lightv_index + len(treeDICT["LightVP"].head):])
         
     '''
     from #419 to 431 is just a dumb way to get rid of the problem you mentioned 11/8 06:41.
