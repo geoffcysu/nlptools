@@ -74,9 +74,9 @@ class HeadPatterns(Static):
 
 @dataclass
 class Tree:
-    left: 'Union[Tree,list[Tree, str]]'
+    left: 'list[Union[Tree, str]]' # I'm not sure how do i express -> list[Tree or str]
     head: str
-    comp: 'Union[str,Tree,list[str]]'
+    comp: 'Union[str,Tree]' # We might have to change this?
     
     def c_command(parentSTR: str, childSTR: str, self) -> bool:
         pass
