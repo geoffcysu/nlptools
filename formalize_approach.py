@@ -74,7 +74,7 @@ class HeadPatterns(Static):
 
 @dataclass
 class Tree:
-    left: 'Union[str,Tree,list[Tree, str]]'
+    left: 'Union[Tree,list[Tree, str]]'
     head: str
     comp: 'Union[str,Tree,list[str]]'
     
@@ -120,12 +120,15 @@ def parse_CP(parseSTR: str)->CP:
     '''
     split = split_pos(HeadPatterns.C_pat, parseSTR)
     if split is None:
-        return CP(left = ""
+        return CP(left = []
                   ,head = "∅"
                   ,comp = parseSTR
                   )
     else: 
-        return CP(left=split[0], head=split[1], comp=split[2])
+        return CP(left=split_left(split[0])
+                  , head=split[1]
+                  , comp=split[2]
+                  )
         #or simply `Tree(*split)`
 
 
@@ -133,7 +136,7 @@ class TP(Tree):
     pass
 
 def parse_TP(CP_comp: str) -> TP:
-    return TP(left = ""
+    return TP(left = []
               ,head = "∅"
               ,comp = CP_comp
               )
@@ -145,7 +148,7 @@ class ModP(Tree):
 def parse_ModP(TP_comp: str) -> ModP:
     split = split_pos(HeadPatterns.Mod_pat, TP_comp)
     if split is None:
-        return ModP(left = ""
+        return ModP(left = []
                     ,head = ""
                     ,comp = TP_comp
                     )
@@ -162,7 +165,7 @@ class NegP(Tree):
 def parse_NegP(ModP_comp: str) -> NegP:
     split = split_pos(HeadPatterns.Neg_pat, ModP_comp)
     if split is None:
-        return NegP(left = ""
+        return NegP(left = []
                     ,head = ""
                     ,comp = ModP_comp
                     )
@@ -179,7 +182,7 @@ class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 S
 def parse_AspP(NegP_comp: str) -> AspP:
     split = split_pos(HeadPatterns.Asp_pat, NegP_comp)
     if split is None:
-        return AspP(left = ""
+        return AspP(left = []
                     ,head = ""
                     ,comp = NegP_comp
                     )
@@ -226,7 +229,7 @@ class LightVP(Tree):
 def parse_LightVP(NegP_comp: str) -> LightVP:
     split = split_pos(HeadPatterns.LightV_pat, NegP_comp)
     if split is None:
-        return LightVP(left = ""
+        return LightVP(left = []
                        ,head = "∅"
                        ,comp = NegP_comp
                        )
@@ -271,7 +274,7 @@ def parse_VP(LightVP_comp: str, NegP:NegP)->Optional[Union[VP, DegP]]:
                   )
 
     if NegP.head == "":
-        return VP(left = ""
+        return VP(left = []
                 ,head = ""
                 ,comp= ""
              )
@@ -288,19 +291,25 @@ class ClsP(Tree):
 def parse_ClsP(VP_comp: str) -> ClsP:
     split = split_pos(HeadPatterns.Cls_pat, VP_comp)
     if split is None:
-        return ClsP(left = ""
+        return ClsP(left = []
                     ,head = ""
                     ,comp = VP_comp
                     )
     else:
-        return ClsP(*split)
+        return ClsP(left = split_left(split[0])
+                  ,head = split[1]
+                  ,comp = split[2]
+                  )
 
 def parse_RC(ClsP_comp: str) -> Optional[Adjunct]:
     split = split_pos(HeadPatterns.RC_pat, ClsP_comp)
     if split is None:
         return None
     else: 
-        return Adjunct(left=split[0], head=split[1], right=split[2])
+        return Adjunct(left=split_left(split[0])
+                       , head=split[1]
+                       , right=split[2]
+                       )
 
 
 class NP(Tree):
@@ -330,32 +339,32 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
         split_n = split_pos(HeadPatterns.N_pat, ClsP.comp)
         if checkCLS == True and split_n is None:
             if ClsP.head != "":
-                return NP(left = ""
+                return NP(left = []
                           ,head = "∅"
                           ,comp = ""
                           )
             else:
-                return NP(left = ""
+                return NP(left = []
                           ,head = ""
                           ,comp = ""
                           )
         else:
                             
             #我吃五碗飯
-            return NP(left = split_n[0],
+            return NP(left = split_left(split_n[0]),
                       head = n_head,
                       comp = ""
                       )
     else:
         n_tree = NP(
-            left = "", 
+            left = [], 
             head = "",
             comp = rc.right
         )
         n_head = parse_NP(n_tree, False)
         #xx的yy
         return NP(
-            left = rc.left + rc.head,
+            left = [''.join(rc.left) + rc.head],
             head = n_head.head,
             comp = ""
         )
@@ -367,12 +376,15 @@ class De_CompP(Tree):
 def parse_De_CompP(VP_comp: str) -> De_CompP:
     split = split_pos(HeadPatterns.De_Comp_pat, VP_comp)
     if split is None:
-        return De_CompP(left = ""
+        return De_CompP(left = []
                         ,head = ""
                         ,comp = VP_comp
                         )
     else:
-        return De_CompP(*split)
+        return De_CompP(left = split_left(split[0])
+                        ,head = split[1]
+                        ,comp = split[2]
+                        )
 
 
 """
@@ -466,8 +478,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     '''
     if treeDICT["VP/PredP"].head == treeDICT["AspP"].left[-1]:
         treeDICT["AspP"].comp = treeDICT["VP/PredP"].head + treeDICT["AspP"].comp
-        treeDICT["AspP"].left.pop() 
-        
+        treeDICT["AspP"].left.pop()        
         #v_index = treeDICT["AspP"].left.rfind(treeDICT["VP/PredP"].head)
         #treeDICT["AspP"].comp = (treeDICT["AspP"].left[v_index:v_index + len(treeDICT["VP/PredP"].head)] +
                                  #treeDICT["AspP"].comp)        
@@ -503,7 +514,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     # SFP 了 should be at CP.Right. I will place it in CP.left for now.
     for max_proj in ['De_CompP', 'NP', 'ClsP', 'VP/PredP', 'LightVP', 'AspP', 'NegP', 'ModP', 'TP', 'CP']:
         if treeDICT[max_proj].head != "" and treeDICT[max_proj].comp.endswith("<ASPECT>了</ASPECT>"):
-            treeDICT["CP"].left = treeDICT["CP"].left + "<ASPECT>了</ASPECT>"
+            treeDICT["CP"].left.insert(-1, "<ASPECT>了</ASPECT>")
             treeDICT[max_proj].comp = treeDICT[max_proj].comp[:len(treeDICT[max_proj].comp)-len("<ASPECT>了</ASPECT>")]
             break
         else:
@@ -537,24 +548,25 @@ def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movem
         print("\nEPP_movement：No Necessary EPP Movement Scenario.")
         return None
     else:
-        if treeDICT["TP"].left == "":
+        if treeDICT["TP"].left == []:
             for max_proj in ["ModP","NegP","AspP","LightVP","VP/PredP"]:
                 try:
-                    if treeDICT[max_proj].left != [""] and treeDICT[max_proj].left != "":
-                        subj = Tree(left="",
+                    if treeDICT[max_proj].left != []:
+                        subj = Tree(left=[],
                                     head="",
                                     comp=str(treeDICT[max_proj].left[0]))
-                        treeDICT["TP"].left.insert(parse_NP(subj, False))
+                        treeDICT["TP"].left.insert(0, parse_NP(subj, False))
                         treeDICT["TP"].comp = treeDICT["TP"].comp.replace("{}".format(str(treeDICT[max_proj].left[0])), "<trace>t</trace>", 1)
                         treeDICT["LightVP"].left.insert(-1, "<trace>Subj_trace</trace>")
                         if max_proj != "VP/PredP": 
-                            treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
+                            treeDICT[max_proj].left[0] = "<trace>Subj_trace</trace>"
+                            #treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
                         else:
-                            treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "")
+                            treeDICT[max_proj].left[0] = ""
                         try:    
                             for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                                 if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
-                                    treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                                    treeDICT[trace_pos].left.insert(0, "<trace>Subj_trace</trace>")
                         except KeyError:
                             continue
                         
@@ -591,13 +603,13 @@ def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movem
                 except KeyError:
                     continue
             else:
-                treeDICT["TP"].left = "<Pro>Pro_Support</Pro>"
-                treeDICT["TP"].comp = "<trace>Subj_trace</trace>" + treeDICT["TP"].comp
-                treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                treeDICT["TP"].left.insert(0, "<Pro>Pro_Support</Pro>")
+                treeDICT["TP"].comp.insert(0, "<trace>Subj_trace</trace>")
+                treeDICT["LightVP"].left.insert(0, "<trace>Subj_trace</trace>")
                 for trace_pos in ["LightVP","AspP","NegP","ModP"]:
                     try:    
                         if "<trace>Subj_trace</trace>" not in treeDICT[trace_pos].left:
-                            treeDICT[trace_pos].left = "<trace>Subj_trace</trace>" + treeDICT[trace_pos].left
+                            treeDICT[trace_pos].left.insert(0, "<trace>Subj_trace</trace>")
                     except KeyError:
                         continue
                     
@@ -763,9 +775,9 @@ if __name__ == '__main__':
         realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
 
-    #print("*Narrow Syntax Operations:")
-    #EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-    #vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
+    print("*Narrow Syntax Operations:")
+    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
     
     '''
     These examples help understand the parsing process.
