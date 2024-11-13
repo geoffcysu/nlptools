@@ -74,7 +74,7 @@ class HeadPatterns(Static):
 
 @dataclass
 class Tree:
-    left: 'Union[str,Tree,list[str]]'
+    left: 'Union[str,Tree,list[Tree, str]]'
     head: str
     comp: 'Union[str,Tree,list[str]]'
     
@@ -540,13 +540,13 @@ def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movem
         if treeDICT["TP"].left == "":
             for max_proj in ["ModP","NegP","AspP","LightVP","VP/PredP"]:
                 try:
-                    if treeDICT[max_proj].left != "":
+                    if treeDICT[max_proj].left != [""] and treeDICT[max_proj].left != "":
                         subj = Tree(left="",
                                     head="",
-                                    comp=treeDICT[max_proj].left)
-                        treeDICT["TP"].left = parse_NP(subj, False)
-                        treeDICT["TP"].comp = treeDICT["TP"].comp.replace("{}".format(treeDICT[max_proj].left), "<trace>t</trace>", 1)
-                        treeDICT["LightVP"].left = "<trace>Subj_trace</trace>"
+                                    comp=str(treeDICT[max_proj].left[0]))
+                        treeDICT["TP"].left.insert(parse_NP(subj, False))
+                        treeDICT["TP"].comp = treeDICT["TP"].comp.replace("{}".format(str(treeDICT[max_proj].left[0])), "<trace>t</trace>", 1)
+                        treeDICT["LightVP"].left.insert(-1, "<trace>Subj_trace</trace>")
                         if max_proj != "VP/PredP": 
                             treeDICT[max_proj].left = treeDICT[max_proj].left.replace(treeDICT["TP"].left.left + treeDICT["TP"].left.head, "<trace>Subj_trace</trace>") # I considered the possibility which the max_proj.left contains ADVs other than just the Subject. So now only the Subject will be replaced.
                         else:
