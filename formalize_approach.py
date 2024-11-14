@@ -40,7 +40,7 @@ class HeadPatterns(Static):
     Mod_pat: re.Pattern =  re.compile("(<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>)")
     "(\<MODAL>[^<]+\</MODAL>)"
 
-    Aux_pat: re.Pattern = re.compile("(<AUX>[卻是]+</AUX>)")
+    Aux_pat: re.Pattern = re.compile("((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>)")
     
     Neg_pat: re.Pattern = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>)")
     "(\<FUNC_negation>[^\<]+\</FUNC_negation>)"
@@ -210,9 +210,9 @@ def parse_AspP(NegP_comp: str) -> AspP:
             )
         elif split[0].endswith(">") == False and split[1].startswith("</ACTION_verb>") == True:
             print("000000000000000000")
-            return AspP(left = split_left(str(split_left(split[0]))[:str(split_left(split[0])).rfind("<ACTION_verb>")])
+            return AspP(left = split_left(str(split_left(split[0]))[2:str(split_left(split[0])).rfind("<ACTION_verb>")])
                         ,head = split[1][len("<ACTION_verb>") + 1:]
-                        ,comp = str(split_left(split[0] + "</ACTION_verb>"))[str(split_left(split[0] + "</ACTION_verb>")).rfind("<ACTION_verb>"):] + split[2]
+                        ,comp = str(split_left(split[0] + "</ACTION_verb>"))[str(split_left(split[0] + "</ACTION_verb>")).rfind("<ACTION_verb>"):-2] + split[2]
             )
         elif split[1].endswith("</ACTION_verb>") == True and split[1].startswith("<ACTION_verb>") == True:
             print("11111111111111111")
@@ -800,7 +800,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "我昨天吃了五碗飯。" 
+    inputSTR: int = "我把蘇聯經濟推向了崩潰的邊緣" 
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
