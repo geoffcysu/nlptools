@@ -178,23 +178,10 @@ IP─""
   │  └─""
 IP─""
  └─""
-             ┌──────────────────────comp:了
-             │            ┌──comp◁ 五千元
-             │  ┌──comp:VP───head:騙
-             │  │        └──left:""
-  ┌─comp:AspP┴LightVP-head:被
-  │       │    └─left""
-  │       └─left:""
-IP─head:""
- └─left:""
-        ┌───────────────────────< >
-        │          ┌────◁ 五千元 ║
-  ┌─AspP┴LightVP-VP──騙了<═══════╝
-  │  │    │       └─""
-  │  │    └─被
-  │  └─""
-IP─""
- └─""
+
+
+
+
 
 """
 
@@ -210,6 +197,79 @@ ex1 = VP(head = "吃"
                               )
                     )
         )
+
+class CP(Tree):...
+class TP(Tree):...
+class AspP(Tree):...
+class LightVP(Tree):...
+class VP(Tree):...
+class ClsP(Tree):...
+class NP(Tree):...
+
+# 我昨天吃了五碗飯
+ex2 = CP(left='',
+   head='∅',
+   comp=TP(left='',
+           head='∅',
+           comp=AspP(left='<ENTITY_pronoun>我</ENTITY_pronoun><TIME_day>昨天</TIME_day>',
+                     head='<ASPECT>了</ASPECT>',
+                     comp=LightVP(left='',
+                                  head='∅',
+                                  comp=VP(left='',
+                                          head='<ACTION_verb>吃</ACTION_verb>',
+                                          comp=ClsP(left='',
+                                                    head='<ENTITY_classifier>五碗</ENTITY_classifier>',
+                                                    comp=NP(left='',
+                                                            head='<ENTITY_nouny>飯</ENTITY_nouny>',
+                                                            comp='')))))))
+
+
+"""
+# 我昨天吃了五碗飯
+expected print:
+
+                                      ┌─""
+                                 ┌─NP─┴飯
+                                 │  └─""
+                           ┌─ClsP┴五碗
+                           │  └─""
+              ┌─了         │
+              │       ┌─VP─┴吃
+              │       │  └─""
+        ┌─AspP┴LightVP┴ø
+        │  │    └─""
+        │  └─我昨天
+   ┌─TP─┴ø
+   │  └─""
+CP─┴ø
+ └─""
+              ┌─了         
+              │       ┌─VP◁ 吃五碗飯
+        ┌─AspP┴LightVP┴ø
+        │  │    └─""
+        │  └─我昨天
+   ┌─TP─┴ø
+   │  └─""
+CP─┴ø
+ └─""
+
+ 
+Apply EPP movement
+
+              ┌─了         
+              │       ┌─VP◁ 吃五碗飯
+        ┌─AspP┴LightVP┴ø
+        │  │    └─""
+        │  └─[]昨天
+   ┌─TP─┴ø   ║
+   │  └─我 <═╝
+CP─┴ø
+ └─""
+
+
+
+"""
+
 
 def swap(t1:Tree, field1:str, t2:Tree, field2:str):
     temp = t1.__dict__[field1]
