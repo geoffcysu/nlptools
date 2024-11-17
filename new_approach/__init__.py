@@ -11,32 +11,38 @@ _last =   '└──'
 
 HeadType = Literal['initial','final']
 
+@dataclass
+class ViewOptions:
+    folded: bool
 
-RangedStr = tuple[str, tuple[int,int]]
+    @staticmethod
+    def default() -> 'ViewOptions':
+        return ViewOptions(
+            folded = False
+        )
 
 
 class Tree:
-    # Range information is used for tree printing.
-    left: 'Union[str,RangedStr,Tree,list[str]]'
-    head: Union[str, RangedStr]
-    comp: 'Union[str, RangedStr,Tree]'
+    left: 'Union[str,Tree]'
+    head: str
+    comp: 'Union[str, Tree]'
     parent: 'Optional[Tree]' = None
     head_type: HeadType = 'initial'
     
-    folded: bool = False
+    viewOptions: ViewOptions = ViewOptions.default()
 
     def __setattr__(self, name: str, value: Any) -> None:
         super().__setattr__(name,value)
         if name in ['comp','left'] and isinstance(value,Tree):
             value.parent = self
 
-    def __init__(self,l: 'Optional[Union[str,RangedStr,Tree,list[str]]]' = None
-                     ,h: Optional[Union[str,RangedStr]] = None
-                     ,c: 'Optional[Union[str,RangedStr,Tree]]' = None
+    def __init__(self,l: 'Optional[Union[str,Tree]]' = None
+                     ,h: Optional[str] = None
+                     ,c: 'Optional[Union[str,Tree]]' = None
                      ,*
                      ,head_type: Literal['initial', 'final'] = 'initial'
-                     ,left: 'Optional[Union[str,Tree,list[str]]]' = None
-                     ,head: Optional[Union[str,RangedStr]] = None
+                     ,left: 'Optional[Union[str,Tree]]' = None
+                     ,head: Optional[str] = None
                      ,comp: 'Optional[Union[str,Tree]]' = None
                      ):
         """
@@ -58,35 +64,54 @@ class Tree:
         else:
             raise Exception('Wrong use of the Tree constructor. ')
 
-    def __printTree(self, prefix: str="") -> Generator[str,None,None]:
+    def __repr__(self) -> str:
+        if isinstance(self.left, Tree):
+            leftstr = f"{type(self.left).__name__}[{self.left.head}]"
+        else:
+            leftstr = self.left
+
+        if isinstance(self.comp, Tree):
+            compstr = f"{type(self.comp).__name__}[{self.comp.head}]"
+        else:
+            compstr = self.comp
+
+        if self.head_type == 'initial':
+            return f"{type(self).__name__}(left={leftstr}"\
+                                        f",head={self.head}"\
+                                        f",comp={compstr})"
+        else:
+            return f"{type(self).__name__}(left={leftstr}"\
+                                        f",comp={compstr}"\
+                                        f",head={self.head})"
+
+    def __print_directory_style(self, prefix: str="") -> Generator[str,None,None]:
 
         left_content = "left:" + (type(self.left).__name__ + f"[{self.left.head}]" 
                                    if isinstance(self.left, Tree)
                                    else f"\"{self.left}\"")
         yield prefix + _tee + left_content
         if isinstance(self.left, Tree): 
-            yield from self.left.__printTree(prefix = prefix + _branch + "     ") 
+            yield from self.left.__print_directory_style(prefix = prefix + _branch + "     ") 
         
         comp_content = "comp:" + (type(self.comp).__name__ + f"[{self.comp.head}]" 
                                    if isinstance(self.comp, Tree)
                                    else f"\"{self.comp}\"")
         yield prefix + _last + comp_content
         if isinstance(self.comp, Tree): 
-            yield from self.comp.__printTree(prefix = prefix + _space + "     ") 
+            yield from self.comp.__print_directory_style(prefix = prefix + _space + "     ") 
 
-    def __printTreeLR(self) -> Generator[str,None,None]:
+    def print_directory_style(self) -> str:
+        return (f"{type(self).__name__}[{self.head}]\n"+
+                "\n".join(list(self.__print_directory_style()))
+               )
+
+    def __print_horizontal(self) -> list[list[str]]:
         ...
 
-    def pstr(self) -> str:
-        return (f"{type(self).__name__}[{self.head}]\n"+
-                "\n".join(list(self.__printTree()))
-               )
     def __str__(self) -> str:
-        return self.pstr()
-    def __repr__(self) -> str:
-        return self.pstr()
+        return self.print_directory_style()
     def pprint(self):
-        print(self.pstr())
+        print(self.print_directory_style())
 
 
 ## the algorithm is taken from https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python
@@ -243,10 +268,13 @@ expected print:
    │  └─""
 CP─┴ø
  └─""
-              ┌─了         
-              │       ┌─VP◁ 吃五碗飯
-        ┌─AspP┴LightVP┴ø
-        │  │    └─""
+
+                             ┌─ClsP◁ 五碗飯
+                        ┌─VP─┴吃
+                        │  └─""
+                ┌LightVP┴ø
+                │ └─""
+        ┌─AspP──┴─了
         │  └─我昨天
    ┌─TP─┴ø
    │  └─""
@@ -256,8 +284,9 @@ CP─┴ø
  
 Apply EPP movement
 
-              ┌─了         
-              │       ┌─VP◁ 吃五碗飯
+                           ┌─ClsP◁ 五碗飯
+              ┌─了         │
+              │       ┌─VP─┴吃
         ┌─AspP┴LightVP┴ø
         │  │    └─""
         │  └─[]昨天
@@ -265,6 +294,33 @@ Apply EPP movement
    │  └─我 <═╝
 CP─┴ø
  └─""
+
+then apply verb raising
+
+                           ┌─ClsP◁ 五碗飯
+              ┌─吃了 <══════╪╗
+              │       ┌─VP─┴[]
+        ┌─AspP┴LightVP┴ø
+        │  │    └─""
+        │  └─[]昨天
+   ┌─TP─┴ø   ║
+   │  └─我 <═╝
+CP─┴ø
+ └─""
+
+
+ 
+
+ 備案:
+                 ┌─ClsP◁ 五碗飯
+    ┌─了         │
+    │       ┌─VP─┴吃
+    │       │  └─""
+AspP┴LightVP┴ø
+ │    └─""
+ └─我昨天
+
+
 
 
 
