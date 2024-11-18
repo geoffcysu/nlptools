@@ -181,13 +181,25 @@ def parse_NegP(NegP_comp: str) -> NegP:
 class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 Some reference for AspP, FYI. :)
     pass 
 
-def parse_AspP(NegP_comp: str) -> AspP:
+def reverse_vr(NegP_comp: str) -> str:
     reverse_vr_pat = r"(?<!在</ASPECT>)(<ACTION_verb>[^<]+</ACTION_verb>)(<FUNC_inner>[成向]</FUNC_inner>)?(<ASPECT>[過了著]</ASPECT>)"
     vr = re.search(reverse_vr_pat, NegP_comp)
     if vr is not None:
         vr = re.search(reverse_vr_pat, NegP_comp).group(1)
     if vr is not None:
         NegP_comp = re.sub(reverse_vr_pat, lambda m: f"{m.group(3) or ''}{m.group(1)}{m.group(2) or ''}", NegP_comp, 1)
+    
+    return NegP_comp
+
+def parse_AspP(NegP_comp: str) -> AspP:
+    #reverse_vr_pat = r"(?<!在</ASPECT>)(<ACTION_verb>[^<]+</ACTION_verb>)(<FUNC_inner>[成向]</FUNC_inner>)?(<ASPECT>[過了著]</ASPECT>)"
+    #vr = re.search(reverse_vr_pat, NegP_comp)
+    #if vr is not None:
+        #vr = re.search(reverse_vr_pat, NegP_comp).group(1)
+    #if vr is not None:
+        #NegP_comp = re.sub(reverse_vr_pat, lambda m: f"{m.group(3) or ''}{m.group(1)}{m.group(2) or ''}", NegP_comp, 1)
+    
+    NegP_comp = reverse_vr(NegP_comp)
     split = split_pos(HeadPatterns.Asp_pat, NegP_comp) # Maybe try reverse VR before split_pos()
     if split is None:
         return AspP(left = []
