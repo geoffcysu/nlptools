@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
 from typing import Any, Union, Generator, Optional, Literal, TypeVar
+from .util import is_cjk
 
 # prefix components:
 _space =  '   '
@@ -8,6 +9,9 @@ _branch = '│  '
 # pointers:
 _tee =    '├──'
 _last =   '└──'
+
+def _visual_len(s:str)->int:
+    return sum(2 if is_cjk(c) else 1 for c in s)
 
 HeadType = Literal['initial','final']
 
@@ -21,6 +25,11 @@ class ViewOptions:
             folded = False
         )
 
+@dataclass
+class _Pos_in_treestr():
+    left: tuple[int,int]
+    head: tuple[int,int]
+    comp: tuple[int,int]
 
 class Tree:
     left: 'Union[str,Tree]'
@@ -105,8 +114,18 @@ class Tree:
                 "\n".join(list(self.__print_directory_style()))
                )
 
-    def __print_horizontal(self) -> list[list[str]]:
+    __cache_horizontal_str_array: list[list[str]] = []
+    __pos_in_treestr: _Pos_in_treestr = _Pos_in_treestr((-1,-1),(-1,-1),(-1,-1))
+    __str_array_needs_redrawn: bool = True
+    def __print_horizontal(self, str_offset:int=0) -> list[list[str]]:
         ...
+        #top branch
+
+        #middle branch
+
+        #bottom branch
+        if type(self.comp) is str:
+            ...
 
     def __str__(self) -> str:
         return self.print_directory_style()
