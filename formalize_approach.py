@@ -61,7 +61,7 @@ class HeadPatterns(Static):
     P_pat: re.Pattern = re.compile("(<FUNC_inner>[從在]</FUNC_inner>)") #I did not know how to parse 在...裡面 yet.
     "(<FUNC_inner>[從在]</FUNC_inner>)"
     
-    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)(<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>(?:<FUNC_inner>[成向]</FUNC_inner>)?)(?!<FUNC_inner>的</FUNC_inner>)")
+    V_pat: re.Pattern = re.compile("(?<!<FUNC_inner>的</FUNC_inner>)((<(ACTION_verb|VerbP)>[^<]+</(ACTION_verb|VerbP)>)+(?:<FUNC_inner>[成向]</FUNC_inner>)?)(?!<FUNC_inner>的</FUNC_inner>)")
     "(\<(ACTION_verb|VerbP)>[^\<]+\</(ACTION_verb|VerbP)>)"
 
     Cls_pat: re.Pattern =  re.compile("(<ENTITY_classifier>[^<]+</ENTITY_classifier>)")
@@ -842,7 +842,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "我把 EPP 的條件改成找 max_proj list 中最長的 element。" 
+    inputSTR: int = "我仍能投進關鍵球。" 
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
