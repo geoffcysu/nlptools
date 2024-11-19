@@ -37,12 +37,12 @@ class HeadPatterns(Static):
     C_pat: re.Pattern = re.compile("((?<!</ACTION_verb>)(?<!</FUNC_inner>)<ASPECT>了</ASPECT>$|<CLAUSE_(particle|YesNoQ)>[^<]+</CLAUSE_(particle|YesNoQ)>)")
     "\</ACTION_verb>(\<ACTION_verb>說\</ACTION_verb>)"
 
-    Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>|<ACTION_verb>要</ACTION_verb>(?=<ACTION_verb>))+)")
+    Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>|(?<!</FUNC_negation>)<ACTION_verb>要</ACTION_verb>(?=<ACTION_verb>))+)")
     "(\<MODAL>[^<]+\</MODAL>)"
 
     Aux_pat: re.Pattern = re.compile("(((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>|<CLAUSE_AnotAQ>[^<]+</CLAUSE_AnotAQ>))")
     
-    Neg_pat: re.Pattern = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>)")
+    Neg_pat: re.Pattern = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>(<ACTION_verb>要</ACTION_verb>)?)")
     "(\<FUNC_negation>[^\<]+\</FUNC_negation>)"
 
     LightV_pat: re.Pattern = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
@@ -51,7 +51,7 @@ class HeadPatterns(Static):
     Asp_pat: re.Pattern = re.compile("(((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_lightVerb>)|((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_verb>)|(<ASPECT>在</ASPECT>)(?=<ACTION_verb>)|<ACTION_verb>[^<]+([過了完著])</ACTION_verb>)")
     "(\</ACTION_verb>(\<ASPECT>[過了完著]+\</ASPECT>)|(\<ASPECT>[在]\</ASPECT>)\<ACTION_verb>)"
 
-    Deg_pat: re.Pattern = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
+    Deg_pat: re.Pattern = re.compile("(<FUNC_degreeHead>[太很]</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
     "(\<FUNC_degreeHead>很\</FUNC_degreeHead>)"
 
     Adv_pat = re.compile("((?:<FUNC_inner>所</FUNC_inner>)?<ModifierP>[^<]+地</ModifierP>|(?:<FUNC_inner>所</FUNC_inner>)?<[^>]+>[^<]+</[^>]+><FUNC_modifierHead>地</FUNC_modifierHead>|(?:<TIME_[a-z]+>[^<]+</TIME_[a-z]+>){1,10}(?:<RANGE_period>[^<]+</RANGE_period>)?)")
@@ -864,7 +864,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "盒子被打開過。"
+    inputSTR: int = "這家飯店太貴了，我不要住。"
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
@@ -873,9 +873,9 @@ if __name__ == '__main__':
         realTree = parse_S(parseSTR, genTree=True, showTree=True)
         print("\n")
 
-    print("*Narrow Syntax Operations:")
-    EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-    vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
+        print("*Narrow Syntax Operations:")
+        EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+        vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
     
     '''
     These examples help understand the parsing process.
