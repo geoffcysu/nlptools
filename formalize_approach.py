@@ -56,7 +56,7 @@ class HeadPatterns(Static):
 
     Adv_pat = re.compile("((?:<FUNC_inner>所</FUNC_inner>)?<ModifierP>[^<]+地</ModifierP>|(?:<FUNC_inner>所</FUNC_inner>)?<[^>]+>[^<]+</[^>]+><FUNC_modifierHead>地</FUNC_modifierHead>|(?:<TIME_[a-z]+>[^<]+</TIME_[a-z]+>){1,10}(?:<RANGE_period>[^<]+</RANGE_period>)?)")
 
-    Adj_pat = re.compile("(<MODIFIER>[^<]+</MODIFIER>(?:<FUNC_inner>的</FUNC_inner>)?)")
+    #Adj_pat = re.compile("(<MODIFIER>[^<]+</MODIFIER>(?:<FUNC_inner>的</FUNC_inner>)?)")
     
     P_pat: re.Pattern = re.compile("(<FUNC_inner>[從在]</FUNC_inner>)") #I did not know how to parse 在...裡面 yet.
     "(<FUNC_inner>[從在]</FUNC_inner>)"
@@ -286,9 +286,6 @@ class VP(Tree):
 class DegP(Tree):
     pass
 
-class AdjP(Tree):
-    pass
-
 class PP(Tree):
     pass
 
@@ -306,13 +303,6 @@ def parse_VP(LightVP_comp: str, NegP:NegP, AuxP:AuxP)->Optional[Union[VP, DegP]]
                   ,head = split[1]
                   ,comp = split[2]
                   )
-    
-    split = split_pos(HeadPatterns.Adj_pat, LightVP_comp)
-    if split:
-        return AdjP(left = split_left(split[0])
-                  ,head = split[1]
-                  ,comp = split[2]
-                  )    
     
     split = split_pos(HeadPatterns.P_pat, LightVP_comp)
     if split:
@@ -368,13 +358,11 @@ def parse_RC(ClsP_comp: str) -> Optional[Adjunct]:
                        )
 
 
-class NP(Tree):
+class AdjP(Tree):
     pass
 
-"""
-issue here about parsing NP?
-- Checking Cls_pat first or N_pat first?
-"""
+class NP(Tree):
+    pass
 
 def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
     #pprint(ClsP.comp)
@@ -407,17 +395,21 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
                           ,comp = ""
                           )
         else:
-                            
-            #我吃五碗飯
-            return NP(left = split_left(split_n[0]),
-                      head = n_head,
-                      comp = ""
+            if split_n is None:
+                pass
+            else:
+                return NP(left = split_left(split_n[0]),
+                          head = n_head,
+                          comp = ""
                       )
     else:
         if rc.right == "":
-            return NP(
-                left = [''.join(rc.left) + rc.head],
-                head = "∅",
+            '''
+            or NP(left=[''.join(rc.left) + rc.head],head="∅",comp="")
+            '''
+            return AdjP(
+                left = "",
+                head = ''.join(rc.left) + rc.head,
                 comp = ""
             )            
         n_tree = NP(
@@ -850,7 +842,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "這樣的類比是令人寬心的。" 
+    inputSTR: int = "我把 EPP 的條件改成找 max_proj list 中最長的 element。" 
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
