@@ -34,13 +34,13 @@ articut = Articut(username, apikey)
 
 
 class HeadPatterns(Static):
-    C_pat: re.Pattern = re.compile("((?<!</ACTION_verb>)(?<!</FUNC_inner>)<ASPECT>了</ASPECT>|</ACTION_verb>(<ACTION_verb>說</ACTION_verb>))")
+    C_pat: re.Pattern = re.compile("((?<!</ACTION_verb>)(?<!</FUNC_inner>)<ASPECT>了</ASPECT>|(?=<ACTION_verb>[^<]+</ACTION_verb>)?<ACTION_verb>說</ACTION_verb>|<CLAUSE_(particle|YesNoQ)>[^<]+</CLAUSE_(particle|YesNoQ)>)")
     "\</ACTION_verb>(\<ACTION_verb>說\</ACTION_verb>)"
 
     Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>)+)")
     "(\<MODAL>[^<]+\</MODAL>)"
 
-    Aux_pat: re.Pattern = re.compile("((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>)")
+    Aux_pat: re.Pattern = re.compile("(((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>|<CLAUSE_AnotAQ>[^<]+</CLAUSE_AnotAQ>))")
     
     Neg_pat: re.Pattern = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>)")
     "(\<FUNC_negation>[^\<]+\</FUNC_negation>)"
@@ -73,7 +73,7 @@ class HeadPatterns(Static):
     De_Comp_pat: re.Pattern = re.compile("(<FUNC_inner>得</FUNC_inner>)")
     "(\<FUNC_inner>得\</FUNC_inner>)"
 
-    N_pat: re.Pattern = re.compile("((<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>|<LOCATION>[^<]+</LOCATION>|<RANGE_locality>[^<]+</RANGE_locality>|<FUNC_determiner>[^<]+</FUNC_determiner>)+)")
+    N_pat: re.Pattern = re.compile("((<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>|<LOCATION>[^<]+</LOCATION>|<RANGE_locality>[^<]+</RANGE_locality>|<FUNC_determiner>[^<]+</FUNC_determiner>|<CLAUSE_(What|Where|Who)Q>[^<]+</CLAUSE_(What|Where|Who)Q>)+)")
     "(\<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^\<]+\</ENTITY_(nounHead|nouny|noun|oov|pronoun)>)"
 
 @dataclass
@@ -383,6 +383,28 @@ def parse_NP(ClsP: Tree, checkCLS: bool) -> NP:
         n_match = re.finditer(HeadPatterns.N_pat, ClsP.comp)
         n_head = ''.join(match.group(0) for match in n_match)
         split_n = split_pos(HeadPatterns.N_pat, ClsP.comp)
+        #if checkCLS == True:
+            #if split_n is None and ClsP.head != "":
+                #return NP(left = []
+                          #,head = "∅"
+                          #,comp = ""
+                          #)
+            #elif split_n is None and ClsP.head == "":
+                #return NP(left = []
+                          #,head = ""
+                          #,comp = ""
+                          #)
+            #else:
+                #pass
+        
+        #else:
+            #if split_n is None:
+                #pass
+            #else:
+                #return NP(left = split_left(split_n[0]),
+                          #head = n_head,
+                          #comp = ""
+                          #)            
         if checkCLS == True and split_n is None:
             if ClsP.head != "":
                 return NP(left = []
@@ -842,7 +864,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "我仍能投進關鍵球。" 
+    inputSTR: int = "這是蘋果嗎？" 
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
