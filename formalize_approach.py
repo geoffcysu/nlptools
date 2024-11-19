@@ -34,10 +34,10 @@ articut = Articut(username, apikey)
 
 
 class HeadPatterns(Static):
-    C_pat: re.Pattern = re.compile("((?<!</ACTION_verb>)(?<!</FUNC_inner>)<ASPECT>了</ASPECT>|(?=<ACTION_verb>[^<]+</ACTION_verb>)?<ACTION_verb>說</ACTION_verb>|<CLAUSE_(particle|YesNoQ)>[^<]+</CLAUSE_(particle|YesNoQ)>)")
+    C_pat: re.Pattern = re.compile("((?<!</ACTION_verb>)(?<!</FUNC_inner>)<ASPECT>了</ASPECT>$|<CLAUSE_(particle|YesNoQ)>[^<]+</CLAUSE_(particle|YesNoQ)>)")
     "\</ACTION_verb>(\<ACTION_verb>說\</ACTION_verb>)"
 
-    Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>)+)")
+    Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>|<ACTION_verb>要</ACTION_verb>(?=<ACTION_verb>))+)")
     "(\<MODAL>[^<]+\</MODAL>)"
 
     Aux_pat: re.Pattern = re.compile("(((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>|<CLAUSE_AnotAQ>[^<]+</CLAUSE_AnotAQ>))")
@@ -48,7 +48,7 @@ class HeadPatterns(Static):
     LightV_pat: re.Pattern = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
     "(\<ACTION_lightVerb>[^\<]+\</ACTION_lightVerb>)"
 
-    Asp_pat: re.Pattern = re.compile("((<ASPECT>[過了完著]+</ASPECT>)(?=<ACTION_verb>)|(<ASPECT>在</ASPECT>)(?=<ACTION_verb>)|<ACTION_verb>[^<]+([過了完著])</ACTION_verb>)")
+    Asp_pat: re.Pattern = re.compile("(((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_verb>)|(<ASPECT>在</ASPECT>)(?=<ACTION_verb>)|<ACTION_verb>[^<]+([過了完著])</ACTION_verb>)")
     "(\</ACTION_verb>(\<ASPECT>[過了完著]+\</ASPECT>)|(\<ASPECT>[在]\</ASPECT>)\<ACTION_verb>)"
 
     Deg_pat: re.Pattern = re.compile("(<FUNC_degreeHead>很</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
@@ -202,13 +202,13 @@ class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 S
     pass 
 
 def reverse_vr(NegP_comp: str) -> str:
-    reverse_vr_pat = r"(?<!在</ASPECT>)(<ACTION_verb>[^<]+</ACTION_verb>)+(<FUNC_inner>[成向]</FUNC_inner>)?(<ASPECT>[過了完著]</ASPECT>)"
+    reverse_vr_pat = r"(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)?(?<!在</ASPECT>)(<ACTION_verb>[^<]+</ACTION_verb>)+(<FUNC_inner>[成向]</FUNC_inner>)?((<ASPECT>[過了完著]</ASPECT>)+)"
     vr = re.search(reverse_vr_pat, NegP_comp)
     if vr is not None:
-        vr = re.search(reverse_vr_pat, NegP_comp).group(1)
+        vr = re.search(reverse_vr_pat, NegP_comp).group(4)
     if vr is not None:
-        NegP_comp = re.sub(reverse_vr_pat, lambda m: f"{m.group(3) or ''}{m.group(0).replace(m.group(3) or '', '')}", NegP_comp, 1)
-        
+        NegP_comp = re.sub(reverse_vr_pat, lambda m: f"{m.group(4) or ''}{m.group(1) or ''}{m.group(0).replace(m.group(4) or '', '').replace(m.group(1) or '', '')}", NegP_comp, 1)
+    
     return NegP_comp
 
 def parse_AspP(NegP_comp: str) -> AspP:
@@ -864,7 +864,7 @@ def output_tree(treeDICT: dict):
 
 
 if __name__ == '__main__':
-    inputSTR: int = "這是蘋果嗎？" 
+    inputSTR: int = "我跑過了。"
     #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
     parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
     for parseSTR in parseLIST:
