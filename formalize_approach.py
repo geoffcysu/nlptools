@@ -40,7 +40,7 @@ class HeadPatterns(Static):
     Mod_pat: re.Pattern =  re.compile("((<MODAL>[^<]+</MODAL>|<MODIFIER>可能</MODIFIER>|(?<!</FUNC_negation>)<ACTION_verb>要</ACTION_verb>(?=<ACTION_verb>))+)")
     "(\<MODAL>[^<]+\</MODAL>)"
 
-    Aux_pat: re.Pattern = re.compile("(((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>|<CLAUSE_AnotAQ>[^<]+</CLAUSE_AnotAQ>))")
+    Aux_pat: re.Pattern = re.compile("((?<!</FUNC_negation>)((?:<FUNC_inner>就</FUNC_inner>)?<AUX>[就卻是]+</AUX>|<CLAUSE_AnotAQ>[^<]+</CLAUSE_AnotAQ>))")
     
     Neg_pat: re.Pattern = re.compile("(<FUNC_negation>[^<]+</FUNC_negation>(<ACTION_verb>要</ACTION_verb>)?)")
     "(\<FUNC_negation>[^\<]+\</FUNC_negation>)"
@@ -48,7 +48,7 @@ class HeadPatterns(Static):
     LightV_pat: re.Pattern = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
     "(\<ACTION_lightVerb>[^\<]+\</ACTION_lightVerb>)"
 
-    Asp_pat: re.Pattern = re.compile("(((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_lightVerb>)|((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_verb>)|(<ASPECT>在</ASPECT>)(?=<ACTION_verb>)|<ACTION_verb>[^<]+([過了完著])</ACTION_verb>)")
+    Asp_pat: re.Pattern = re.compile("(((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_lightVerb>)|((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_verb>)|(<ASPECT>(?:(在|已經))</ASPECT>)(?=<ACTION_verb>)|<ACTION_verb>[^<]+([過了完著])</ACTION_verb>)")
     "(\</ACTION_verb>(\<ASPECT>[過了完著]+\</ASPECT>)|(\<ASPECT>[在]\</ASPECT>)\<ACTION_verb>)"
 
     Deg_pat: re.Pattern = re.compile("(<FUNC_degreeHead>[太很]</FUNC_degreeHead>)") #I leave possibility for adj. predicates. e.g., 我很高。
@@ -495,6 +495,12 @@ NP -> (? rc_pat) ? ??
 # pred_on_neg: Tree -> input:str -> Either[Err,Tree] #how to represent the continuation?
 
 def gen_realTree(treeDICT: dict) -> Tree:
+    if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":    
+        #print("--------------------------------------------------------------------------------------------------------------------------------")
+        print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
+        #print("--------------------------------------------------------------------------------------------------------------------------------")
+        
+        return None    
     projLIST = ['CP', 'TP', 'ModP', 'AuxP', 'NegP', 'AspP', 'LightVP', 'VP/PredP', 'ClsP', 'NP', 'De_CompP']
     realDICT = copy.deepcopy(treeDICT)
 
@@ -612,7 +618,7 @@ def parse_S(parseSTR: str, genTree: bool, showTree: bool) -> dict:
     if genTree == True:
         realTree = gen_realTree(treeDICT)
         
-        if showTree == True:
+        if showTree == True and realTree != None:
             print("\n")
             pprint(realTree)
         
@@ -634,7 +640,7 @@ class EPP_movement():
 
 def ex_EPP_movement(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movement, 'Union[Tree,dict]'):    
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":
-        print("\nEPP_movement：No Necessary EPP Movement Scenario.")
+        print("\nEPP_movement：No Necessary EPP Movement Scenario.\n")
         return None
     else:
         if treeDICT["TP"].left == []:
@@ -778,14 +784,14 @@ def ex_verb_raising(treeDICT: dict, genTree: bool, showTree: bool) -> (EPP_movem
                     treeDICT)            
             
     else:
-        print("\nVerb Raising：No Necessary Verb Raising Scenario.")
+        print("\nVerb Raising：No Necessary Verb Raising Scenario.\n")
         return None
 
 def output_tree(treeDICT: dict):
     if treeDICT["VP/PredP"].head == "" and treeDICT["NegP"].head == "":    
-        print("--------------------------------------------------------------------------------------------------------------------------------")
+        #print("--------------------------------------------------------------------------------------------------------------------------------")
         print("\nCannot Find Predicate.\nThis Is NOT A Complete Grammatical Sentence.")
-        print("--------------------------------------------------------------------------------------------------------------------------------")
+        #print("--------------------------------------------------------------------------------------------------------------------------------")
         
         return None
     
@@ -862,21 +868,36 @@ def output_tree(treeDICT: dict):
 
 
 
-
 if __name__ == '__main__':
-    inputSTR: int = "現在是下午兩點三十分。"
-    #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"
-    parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
-    for parseSTR in parseLIST:
-        print("*InputSTR:{}".format(inputSTR))
-        treeDICT = parse_S(parseSTR, genTree=False, showTree=False)
-        realTree = parse_S(parseSTR, genTree=True, showTree=True)
-        print("\n")
-
-        print("*Narrow Syntax Operations:")
-        EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
-        vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)    
+    with open("./data/test_data.json", "r", encoding="utf-8") as jsonFILE:
+        testLIST = json.load(jsonFILE)
+    #pprint(testLIST)
     
+    #inputSTR: str = "例句。"
+    #inputSTR: str = "現在是下午兩點三十分。"
+    #"我覺得說他可以吃五碗他喜歡的飯。他被打得很慘。他可以吃五碗飯。他吃五碗飯。她參加比賽。他很高。他跑得很快。他吃了他喜歡的零食。他吃了五包他喜歡的零食。他白飯。樹上沒有葉子。"    
+    #parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
+    #for parseSTR in parseLIST:
+        #print("*InputSTR:{}".format(inputSTR))
+        #treeDICT = parse_S(parseSTR, genTree=False, showTree=True)
+        #realTree = parse_S(parseSTR, genTree=True, showTree=False)
+        #print("\n")    
+    
+    for inputSTR in testLIST[20:30]:
+        parseLIST = [i for i in articut.parse(inputSTR, level="lv1")["result_pos"] if len(i) > 1]
+        #pprint(parseLIST)
+        for parseSTR in parseLIST:
+            if len(re.findall("<[^>]+>[^<]+</[^>]+>", parseSTR)) > 1:
+                print("*InputSTR:{}".format(inputSTR))
+                treeDICT = parse_S(parseSTR, genTree=False, showTree=False)
+                realTree = parse_S(parseSTR, genTree=True, showTree=True)
+                print("\n")
+                
+                print("*Narrow Syntax Operations:")
+                EPP_tree = ex_EPP_movement(treeDICT, genTree=True, showTree=True)
+                vraise_tree = ex_verb_raising(treeDICT, genTree=True, showTree=True)
+                print("--------------------------------------------------------------------------------------------------------------------------------")
+            
     '''
     These examples help understand the parsing process.
 
