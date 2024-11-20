@@ -6,3 +6,5 @@ live.py
 mmmc.py
 *__pycache__
 account.info
+.venv/*
+.vscode/*

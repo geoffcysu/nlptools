@@ -1,7 +1,8 @@
 from ArticutAPI import Articut
 from dataclasses import dataclass
 from pprint import pprint
-from typing import Optional, Tuple, Callable, Union, TypeVar, Generic, Any
+from typing import Optional, Tuple, Callable, Union, TypeVar, Generic, Any,\
+                   Literal
 
 import copy
 import json
@@ -78,12 +79,51 @@ class HeadPatterns(Static):
 
 @dataclass
 class Tree:
+
     left: 'list[Union[Tree, str]]' # I'm not sure how do i express -> list[Tree or str]
     head: str
     comp: 'Union[str,Tree]' # We might have to change this?
     
     def c_command(parentSTR: str, childSTR: str, self) -> bool:
         pass
+
+    head_type: Literal['initial', 'final'] = 'initial'
+
+    parent: 'Optional[Tree]' = None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name,value)
+        if name in ['comp','left'] and isinstance(value,Tree):
+            value.parent = self
+
+    # def __init__(self,l: 'Optional[Union[str,Tree,list[str]]]' = None
+    #                  ,h: Optional[str] = None
+    #                  ,c: 'Optional[Union[str,Tree]]' = None
+    #                  ,*
+    #                  ,head_type: Literal['initial', 'final'] = 'initial'
+    #                  ,left: 'Optional[Union[str,Tree,list[str]]]' = None
+    #                  ,head: Optional[str] = None
+    #                  ,comp: 'Optional[Union[str,Tree]]' = None
+    #                  ):
+    #     """
+    #     The constructor can only be used in two ways: 
+    #     1. `Tree(l,h,c)` when `head_type='initial`
+    #     2. `Tree(left=.., head=.., comp=..)`
+    #     Two methods cannot be mixed.
+    #     """
+    #     if (not (l is None or h is None or c is None))\
+    #        and (left is None and head is None and comp is None)\
+    #        and head_type=='initial':
+    #         #Tree(left,head,comp) when head_type=='initial'
+    #         #DOES NOT ACCEPT Tree(l,h,c, head_type='final')
+    #         self.left, self.head, self.comp = l, h, c
+    #     elif (l is None and h is None and c is None)\
+    #          and (not (left is None or head is None or comp is None)):
+    #         #Tree(head=...,left=...,comp=..., head_type=...)
+    #         self.left, self.head, self.comp = left, head, comp
+    #     else:
+    #         raise Exception('Wrong use of the Tree constructor. ')
+
 
 
 @dataclass
@@ -201,6 +241,7 @@ def parse_NegP(AuxP_comp: str) -> NegP:
 class AspP(Tree): #https://www.persee.fr/doc/clao_0153-3320_1995_num_24_1_1466 Some reference for AspP, FYI. :)
     pass 
 
+
 def reverse_vr(NegP_comp: str) -> str:
     reverse_vr_pat = r"(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)?(?<!在</ASPECT>)(<ACTION_verb>[^<]+</ACTION_verb>)+(<FUNC_inner>[成向]</FUNC_inner>)?((<ASPECT>[過了完著]</ASPECT>)+)"
     vr = re.search(reverse_vr_pat, NegP_comp)
@@ -210,6 +251,16 @@ def reverse_vr(NegP_comp: str) -> str:
         NegP_comp = re.sub(reverse_vr_pat, lambda m: f"{m.group(4) or ''}{m.group(1) or ''}{m.group(0).replace(m.group(4) or '', '').replace(m.group(1) or '', '')}", NegP_comp, 1)
     
     return NegP_comp
+
+HeadType = Literal['initial', 'final']
+asp_patterns = [
+    re.compile("(</ACTION_verb>(<ASPECT>[過了著]+</ASPECT>)"),
+    # "<ENTITY_pronoun>我</ENTITY_pronoun><ACTION_verb>吃</ACTION_verb><ASPECT>過</ASPECT><ENTITY_oov>飯</ENTITY_oov>"
+    re.compile("(<ASPECT>[在]</ASPECT>)<ACTION_verb>"),
+    # "<ENTITY_pronoun>我</ENTITY_pronoun><ASPECT>在</ASPECT><ACTION_verb>吃飯</ACTION_verb>"
+    re.compile("<ACTION_verb>[^<]+([過了著])</ACTION_verb>)")
+]
+
 
 def parse_AspP(NegP_comp: str) -> AspP:
     NegP_comp = reverse_vr(NegP_comp)
