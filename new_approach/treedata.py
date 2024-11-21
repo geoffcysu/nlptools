@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from horz_print import render_block, HorzPrint_conf
+from misc import is_cjk
 from typing import Literal, Union, Optional, Generator, Any
 
 
@@ -10,6 +10,8 @@ _branch = '│  '
 _tee =    '├──'
 _last =   '└──'
 
+def _visual_len(s:str)->int:
+    return sum(2 if is_cjk(c) else 1 for c in s)
 
 HeadType = Literal['initial','final']
 
@@ -29,6 +31,11 @@ class _Pos_in_treestr():
     head: tuple[int,int]
     comp: tuple[int,int]
 
+@dataclass
+class _HorzPrint_conf():
+    cache: Optional[list[str]] = None
+    def clear_cache(self)->None:
+        self.cache = None
 
 class Tree:
     left: 'list[Union[str,Tree]]'
@@ -132,12 +139,43 @@ class Tree:
                )
 
     __pos_in_treestr: _Pos_in_treestr = _Pos_in_treestr((-1,-1),(-1,-1),(-1,-1))
-    _horzPrint_conf: HorzPrint_conf = HorzPrint_conf()
+    _horzPrint_conf: _HorzPrint_conf = _HorzPrint_conf()
+    
+    # concepts that need explainations:
+    # - tree block: the block of string starting from "XP" to the end of the
+    #               string of the deepest subtree,
+    #               and all the branches inside XP
+    #   == str_array
+    # - str_offset: offset starting from the start of the tree block
+    # - branch: the "XP" tree name and the connection branches (the └─┌ symbols)
+    @staticmethod
+    def render_block(input:'Union[str, Tree]', horzPrint_conf: _HorzPrint_conf) \
+                    -> list[str]:
+        if type(input) is str:
+            if input == "":
+                return ["\"\""]
+            else:
+                return [input]
+        elif isinstance(input, Tree):
+            top_subtree = input.comp if input.head_type == 'initial' \
+                                    else input.head
+            middle_subtree = input.head if input.head_type == 'initial' \
+                                    else input.comp
+            #bottom tree block
+            # The bottom tree block always has enough space, and the offset for 
+            # deeper tree blocks should be calculated here.
+            # Information needed to be calculated:
+            # - string length
+            # - stem (the "XP" part of the branch) position (a coordinate on str_array)
+            
+        else:
+            raise TypeError("Unexpected input in render_block.")
+        
     def _horizontal_strarray(self, str_offset:int=0) -> list[str]:
         if self._horzPrint_conf.cache:
             return self._horzPrint_conf.cache
         else:
-            return render_block(self, self._horzPrint_conf)
+            return Tree.render_block(self, self._horzPrint_conf)
     
     def str_horizontal_tyle(self)->str:
        return '\n'.join(self._horizontal_strarray())
