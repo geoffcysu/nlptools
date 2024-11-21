@@ -135,14 +135,14 @@ class Tree:
 
     __pos_in_treestr: _Pos_in_treestr = _Pos_in_treestr((-1,-1),(-1,-1),(-1,-1))
     _horzPrint_conf: HorzPrint_conf = HorzPrint_conf()
-    def _horizontal_strarray(self, str_offset:int=0) -> list[list[str]]:
+    def _horizontal_strarray(self, str_offset:int=0) -> list[str]:
         if self._horzPrint_conf.cache:
             return self._horzPrint_conf.cache
         else:
             return render_block(self, self._horzPrint_conf)
     
     def str_horizontal_tyle(self)->str:
-       return '\n'.join(''.join(line) for line in self._horizontal_strarray())
+       return '\n'.join(self._horizontal_strarray())
 
 
     def __str__(self) -> str:
