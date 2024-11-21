@@ -31,7 +31,7 @@ class _Pos_in_treestr():
 
 
 class Tree:
-    left: 'Union[str,Tree]'
+    left: 'list[Union[str,Tree]]'
     head: str
     comp: 'Union[str, Tree]'
     parent: 'Optional[Tree]' = None
@@ -44,12 +44,12 @@ class Tree:
         if name in ['comp','left'] and isinstance(value,Tree):
             value.parent = self
 
-    def __init__(self,l: 'Optional[Union[str,Tree]]' = None
+    def __init__(self,l: 'Optional[list[Union[str,Tree]]]' = None
                      ,h: Optional[str] = None
                      ,c: 'Optional[Union[str,Tree]]' = None
                      ,*
                      ,head_type: Literal['initial', 'final'] = 'initial'
-                     ,left: 'Optional[Union[str,Tree]]' = None
+                     ,left: 'Optional[list[Union[str,Tree]]]' = None
                      ,head: Optional[str] = None
                      ,comp: 'Optional[Union[str,Tree]]' = None
                      ):
@@ -92,21 +92,21 @@ class Tree:
 
 
 
+    @staticmethod
+    def __print_branch(x:'Union[str, Tree]')->str:
+        if isinstance(x, Tree):
+            return f"{type(x).__name__}[{x.head}]"
+        else:
+            return x
     def __repr__(self) -> str:
-        if isinstance(self.left, Tree):
-            leftstr = f"{type(self.left).__name__}[{self.left.head}]"
-        else:
-            leftstr = self.left
 
-        if isinstance(self.comp, Tree):
-            compstr = f"{type(self.comp).__name__}[{self.comp.head}]"
-        else:
-            compstr = self.comp
+        leftstr = str([Tree.__print_branch(e) for e in self.left])
+        compstr = Tree.__print_branch(self.comp)
 
         if self.head_type == 'initial':
             return f"{type(self).__name__}(left={leftstr}"\
-                                        f",head={self.head}"\
-                                        f",comp={compstr})"
+                                        f", head={self.head}"\
+                                        f", comp={compstr})"
         else:
             return f"{type(self).__name__}(left={leftstr}"\
                                         f",comp={compstr}"\
@@ -114,9 +114,7 @@ class Tree:
 
     def __print_directory_style(self, prefix: str="") -> Generator[str,None,None]:
 
-        left_content = "left:" + (type(self.left).__name__ + f"[{self.left.head}]" 
-                                   if isinstance(self.left, Tree)
-                                   else f"\"{self.left}\"")
+        left_content = "left:" + str([Tree.__print_branch(b) for b in self.left])
         yield prefix + _tee + left_content
         if isinstance(self.left, Tree): 
             yield from self.left.__print_directory_style(prefix = prefix + _branch + "     ") 

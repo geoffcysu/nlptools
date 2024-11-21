@@ -32,11 +32,11 @@ VP───head:吃
 
 # full NP
 
-              ┌──""
-         ┌──N'┴─飯
-    ┌──N'──香香的
- ┌─N'─軟軟的
-NP──""
+               ┌─""
+          ┌──N'┴飯
+     ┌──N'┴香香的
+NP─N'┴軟軟的
+ └─""
               ┌──comp:""
          ┌──N'┴────N:飯
     ┌──N'┴─adjt:香香的
@@ -49,6 +49,11 @@ NP─────┴──────飯
        ┌───────comp:""
 NP─────┴──────head:飯
  └─left:軟軟的,香香的
+
+       ┌───────""
+NP─────┴──────飯
+ ├─────<香香的
+ └<軟軟的
 
 # AspP example and movement
 
@@ -83,11 +88,11 @@ IP─""
 
 
 ex1 = VP(head = "吃"
-        ,left = "他"
+        ,left = ["他"]
         ,comp = ClsP(head = "五碗"
-                    ,left = ""
+                    ,left = [""]
                     ,comp = NP(head = "飯"
-                              ,left = ""
+                              ,left = [""]
                               ,comp = ""  
                               )
                     )
@@ -95,19 +100,19 @@ ex1 = VP(head = "吃"
 
 
 # 我昨天吃了五碗飯
-ex2 = CP(left='',
+ex2 = CP(left=[''],
    head='∅',
-   comp=TP(left='',
+   comp=TP(left=[''],
            head='∅',
-           comp=AspP(left='<ENTITY_pronoun>我</ENTITY_pronoun><TIME_day>昨天</TIME_day>',
+           comp=AspP(left=['<ENTITY_pronoun>我</ENTITY_pronoun><TIME_day>昨天</TIME_day>'],
                      head='<ASPECT>了</ASPECT>',
-                     comp=LightVP(left='',
+                     comp=LightVP(left=[''],
                                   head='∅',
-                                  comp=VP(left='',
+                                  comp=VP(left=[''],
                                           head='<ACTION_verb>吃</ACTION_verb>',
-                                          comp=ClsP(left='',
+                                          comp=ClsP(left=[''],
                                                     head='<ENTITY_classifier>五碗</ENTITY_classifier>',
-                                                    comp=NP(left='',
+                                                    comp=NP(left=[''],
                                                             head='<ENTITY_nouny>飯</ENTITY_nouny>',
                                                             comp='')))))))
 
@@ -196,4 +201,5 @@ def swap(t1:Tree, field1:str, t2:Tree, field2:str):
     t2.__dict__[field2] = temp
 
 if __name__ == '__main__':
-    ...
+    ex1.pprint()
+    ex2.pprint()
