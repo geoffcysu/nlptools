@@ -1,6 +1,20 @@
 # -*- coding:utf-8 -*-
 
 from treedata import VP,CP,ClsP,TP,AspP,NP,LightVP, Tree
+from treeart import *
+
+"""
+TODO:
+* data def problem: binary or ternary
+    - design different rule language?
+* tree rendering (using treeart) and movement rendering
+* the new rule language
+    - supports step-wise observation
+
+
+
+
+"""
 
 """
 example:
@@ -14,12 +28,19 @@ VP[吃]
                 └──comp:""
 
                 
-                 ┌────""
-         ┌─NP────┴───飯
-         │  └─......
- ┌─ClsP─五碗
- │  └─""
-VP───吃
+               ┌──""
+         ┌─NP──┴─飯
+         │  └─""
+   ┌─ClsP┴五碗
+   │  └─""
+VP─┴─吃
+ └─他
+                       ┌─""
+                ┌─NP─N'┴飯
+                │  └─""
+     ┌─ClsP─Cls'┴五碗
+     │  └─""
+VP─V'┴吃
  └─他
                  ┌────comp:""
          ┌─NP────┴───head:飯
@@ -97,6 +118,7 @@ ex1 = VP(head = "吃"
                               )
                     )
         )
+
 
 
 # 我昨天吃了五碗飯
@@ -200,6 +222,20 @@ def swap(t1:Tree, field1:str, t2:Tree, field2:str):
     t1.__dict__[field1] = t2.__dict__[field2]
     t2.__dict__[field2] = temp
 
+from typing import LiteralString
+
+def wrap(s:str)->str:
+    return "\"\"" if s=="" else s
+
+def trans(t:Tree)->str:
+    right = trans(t.comp) if isinstance(t.comp, Tree) else wrap(t.comp)
+    return binary_edge(
+            type(t).__name__,
+            wrap(t.left[0]),
+            binary_edge(
+                type(t).__name__[:-1]+"'",
+                t.head,
+                right,align='center'),align='center')
+
 if __name__ == '__main__':
-    ex1.pprint()
-    ex2.pprint()
+    print(trans(ex1))
