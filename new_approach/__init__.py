@@ -5,6 +5,10 @@ from treeart import *
 
 """
 TODO:
+
+the base bintree types,
+the XP class? at least the interface?
+
 * data def problem: binary or ternary
     - design different rule language?
 * tree rendering (using treeart) and movement rendering
