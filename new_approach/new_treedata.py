@@ -1,6 +1,6 @@
 
 from dataclasses import dataclass
-from typing import Union,Callable,TypeVar,Optional
+from typing import Union,Callable,TypeVar,Optional, Literal
 
 import treeart
 

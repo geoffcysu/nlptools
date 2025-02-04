@@ -59,6 +59,7 @@ class HeadPatterns(Static):
 
     #!!TODO redundant parentheses? 
     #?? [就卻是]+ not [就卻是] ??
+    #  ?? same in Asp_pat
     # need evidence or proof for the patterns?
     Aux_pat: re.Pattern = re.compile(
         "(((?:<FUNC_inner>就</FUNC_inner>)?(?<!<FUNC_inner>還</FUNC_inner>)<AUX>[就卻是]+</AUX>"
@@ -68,9 +69,9 @@ class HeadPatterns(Static):
         )
     
     Neg_pat: re.Pattern = re.compile(
-        "(<FUNC_negation>[^<]+</FUNC_negation>(<ACTION_verb>要</ACTION_verb>)?)")
+        "(<FUNC_negation>.+?</FUNC_negation>(<ACTION_verb>要</ACTION_verb>)?)")
 
-    LightV_pat: re.Pattern = re.compile("(<ACTION_lightVerb>[^<]+</ACTION_lightVerb>)")
+    LightV_pat: re.Pattern = re.compile("(<ACTION_lightVerb>.+?</ACTION_lightVerb>)")
 
     Asp_pat: re.Pattern = re.compile(
         "(((<ASPECT>[過了完著]+</ASPECT>)+)(?=<ACTION_lightVerb>)"
@@ -106,3 +107,7 @@ class HeadPatterns(Static):
     N_pat: re.Pattern = re.compile("((<ENTITY_(nounHead|nouny|noun|oov|pronoun)>[^<]+</ENTITY_(nounHead|nouny|noun|oov|pronoun)>|<TIME_[a-z]+>[^<]+</TIME_[a-z]+>|<LOCATION>[^<]+</LOCATION>|<RANGE_locality>[^<]+</RANGE_locality>|<FUNC_determiner>[^<]+</FUNC_determiner>|<CLAUSE_(What|Where|Who)Q>[^<]+</CLAUSE_(What|Where|Who)Q>)+)")
     
     Conj_pat: re.Pattern = re.compile("(<FUNC_conjunction>[^<]+</FUNC_conjunction>|<FUNC_inner>還</FUNC_inner><AUX>是</AUX>)")
+
+
+
+
